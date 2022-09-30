@@ -1,0 +1,62 @@
+ require(data.table)
+ library("data.table")
+ library(bit64)
+ library(bit)
+ library(readr)
+ library(dplyr, warn.conflicts = FALSE)
+ library(ggplot2)
+ library(tidyverse)
+ #mutmod_10000 <- read.csv("~ EVD_DFE_modifier_Frontiers/simulations/DFE modifier runs/#results_mutmod_10000/extinction_mutmod_2.0_10_10000_0.023_0.2_0.001_0.1_63787193680217")
+ #View(mutmod_10000)
+ 
+
+ list_of_files <- list.files(path = "/Volumes/homes/am21t144/simulations_IAV/test_slim_ratchet/haploid_iav/1000replicates/5e3_10/",
+                             recursive = TRUE,
+                             pattern = "*.csv",
+                             full.names = TRUE)
+ # import files
+ data_time <- readr::read_csv(list_of_files)
+ 
+ N_test1 <- data_time %>%
+   arrange(num_individuals,`#DFEmod`,`#del`)%>%
+   group_by(cycle) %>%
+   summarise(pop_size=mean(num_individuals), sd=sd(num_individuals))
+
+ ggplot(N_test1, aes(x = cycle, y = pop_size)) +
+   geom_line(size=0.2) +
+   geom_errorbar( aes(ymin = pop_size-sd, ymax = pop_size+sd),width = 0.2) +
+   geom_point(size =0.2)+
+ #  labs(title = "DFEmod= 10")+
+   xlab("generation_time") + ylab("N")+
+   xlim(0, 10001)+ylim(0,101)
+ 
+#del_mutations
+ N_dfemod_1e3 <- data_time %>%
+   arrange(num_individuals,`#DFEmod`,`#del`)%>%
+   group_by(cycle) %>%
+   summarise(delMu=mean(`#del`), sd=sd(`#del`))
+ 
+  ggplot(N_dfemod_1e3, aes(x = cycle, y = delMu)) +
+   geom_line(size=0.2) +
+   geom_errorbar( aes(ymin = delMu-sd, ymax = delMu+sd),width = 0.2) +
+   geom_point(size =0.2)+
+#   labs(title = "DfeMod= 10")+
+   xlab("generation_time") + ylab("deleterious counts")+
+   xlim(0, 10001)+ ylim(0,600)
+ 
+ #dfemod_mutations
+ 
+ N_dfemod_1e3 <- data_time %>%
+   arrange(num_individuals,`#DFEmod`,`#del`)%>%
+   group_by(cycle) %>%
+   summarise(dfemod=mean(`#DFEmod`), sd=sd(`#DFEmod`))
+ 
+ 
+ dfemo <- ggplot(N_dfemod_1e3, aes(x = cycle, y = dfemod)) +
+   geom_line(size=0.2) +
+   geom_errorbar( aes(ymin = dfemod-sd, ymax = dfemod+sd),width = 0.2) +
+   geom_point(size =0.2)+
+   labs(title = "DfeMod= 10")+
+   xlab("generation_time") + ylab("dfemod counts")+
+   xlim(0, 80)+ ylim(0,50)
+ 
