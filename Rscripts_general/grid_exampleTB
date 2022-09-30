@@ -1,0 +1,53 @@
+library(PopGenome)
+slim_path <- "/usr/local/bin/slim"
+script_path <- "/Users/anamoralesarae/test.slim"
+
+num=1000
+
+num_mu_1=250 
+num_mu_2=250
+num_mu_3=250
+num_mu_4=250
+
+mu_1 <- runif(num_mu_1, min = 0.000000001, max = 0.000000009) #1e-9
+
+mu_2 <- runif(num_mu_2, min = 0.00000001, max = 0.00000009) #1e-8
+
+mu_3 <- runif(num_mu_3, min = 0.0000001, max = 0.0000009) #1e-7
+
+mu_4 <- runif(num_mu_4, min = 0.000001, max = 0.000009) #1e-6
+
+mu <-c(mu_1,mu_2,mu_3,mu_4)
+mudf <- data.frame(mudf)
+
+p <- runif(num, min = 0, max = 0.2)
+pdf <- data.frame(p)
+
+b <- floor(runif(num, min = 1, max = 100))
+bdf <- data.frame(b)
+
+master <- cbind(mu, pdf, bdf)
+row.master <- dim(master)[1]
+tajd <- NULL
+
+for (i in (1:row.master)){
+  
+  for (j in 1:1000){
+
+    system2(slim_path, c("-d", paste0("mu=", master$mu[i]), "-d", paste0("p=",master$p[i]), "-d", paste0("b=", master$b[i]),script_path),stdout=T)
+    
+    header <- "ms 10 1"
+    onefile <- "/Users/anamoralesarae/Dropbox (ASU)/slim_outputs/slim_grid/ms.txt"
+    tmp <- c(header, readLines(onefile))
+    write(tmp, "tmp.msout")
+    ms <- readMS("tmp.msout")
+    n <- neutrality.stats(ms)
+    gn <- get.neutrality(n)
+    res <- c(master$mu[i], master$p[i], master$b[i], gn[[1]])
+    tajd <- rbind(tajd, res)
+  }
+  
+  if ((i %% 10) == 0) {
+    saveRDS(tajd, file = "tajs_out_iMac.rds")
+  }
+}
