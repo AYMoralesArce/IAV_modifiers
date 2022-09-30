@@ -1,1 +1,46 @@
-c
+#Este es un script que corre Slim y mete el output en R
+#========================================================
+#aqui le doy a R la direccion de slim
+slim_path <- "/usr/local/bin/slim"
+
+#aqui le digo a R a cual directorio enviar los resultados, que es donde estoy trabajando
+Directory <- "/Volumes/homes/am21t144/simulations_IAV/test_slim_ratchet/haploid_iav/1000replicates/"
+
+#aqui le digo a R cual script usar, y le doy la direccion de donde encontrarlo
+script_path <- "/Volumes/homes/am21t144/simulations_IAV/test_slim_ratchet/haploid_iav/job_1_Muller_dfemod_output.slim"
+
+num=10
+
+#mu <- runif(num, min=1.8e-4, max=5e-3)
+mu <- seq(from= 1.8e-4, to= 5e-3, length= num)
+mudf <- data.frame(mu)
+
+d <- rep(-0.01, num)
+pdf <- data.frame(d)
+
+mod <- rep(1, num)
+bdf <- data.frame(mod)
+
+#if I want to make it varible then do this
+#mod <- floor(runif(num, min = 1, max = 100))
+#bdf <- data.frame(mod)
+
+master <- as.data.frame(cbind(mu, pdf, bdf))
+row.master <- dim(master)[1]
+
+for (i in (1:row.master)){
+  
+  for (j in 1:num){
+    
+    system2(slim_path, c("-d", paste0("mu=", master$mu[i]), "-d", paste0("d=",master$d[i]), "-d", paste0("mod=", master$mod[i]),script_path),stdout=T)
+    
+    
+  Outfile <- paste0(Directory, "/pop_log.csv")
+  file.rename(Outfile, paste0(Directory, "/pop_log_", i, "_", j, ".csv"))
+  Outfile1 <- paste0(Directory, "/extinction.txt")
+  file.rename(Outfile1, paste0(Directory, "/extinction_", i, "_", j, ".txt"))
+  
+  # print messaage
+  print(paste0(i,'_replicate #', j, ' done'))
+}}
+
