@@ -1,0 +1,253 @@
+##new passages with 4 uM and 0 drug
+#install.packages("readxl")
+library(readxl)
+drug_replicates <- read_excel("drug_replicates_4uM.xlsx")
+View(drug_replicates) 
+
+library("ggplot2")
+library('scales')
+library(tidyverse)
+#install.packages("dplyr")
+library(dplyr, warn.conflicts = FALSE)
+library(dplyr)
+library(tidyr)
+
+df_drug <- drug_replicates %>% 
+  gather(variable, value, PB1:WT)
+tail(df_drug)
+
+
+###only to plot one passage with all mutants/replicates and mean
+###the input table should be only one passage 
+mean_drug <- df_drug %>%
+  group_by(variable,drug) %>%
+  summarise(mean = mean(value), n = n())
+
+base_breaks <- function(n = 10){
+  function(x) {
+    axisTicks(log10(range(x, na.rm = TRUE)), log = TRUE, n = n)
+  }
+}
+
+p <- ggplot(df_drug)+
+  geom_jitter(aes(x=variable,y=value,color=as.factor(drug)), alpha=0.6, width=0.08)+ 
+              labs(color='Drug concentration')
+
+p + geom_errorbar(data=mean_drug,
+                  aes(x=variable,ymin=mean, ymax=mean,color=as.factor(drug)))+
+  scale_y_continuous(limits= c(1e4,1e9),trans = log_trans(), breaks = base_breaks())+
+  labs(title = "PR8 (wild type) and mutants", subtitle =  "48 hpi",y="Viral titer PFU/mL", x = "Mutants")+
+  theme(axis.text = element_text(size = 15))
+####for breaking into panels I add one line saying face_wrap
+#+
+ # facet_wrap(~variable)
+
+
+###TRYING TO PLOT several passages 
+mean_drug2 <- df_drug %>%
+  group_by(Passage,variable,drug) %>%
+  summarise(mean = mean(value), n = n())
+
+ ggplot(df_drug)+
+  geom_jitter(aes(x=Passage,y=value,color=as.factor(drug)), alpha=0.6, width=0.1)+ 
+  scale_color_manual(values=c("blue3","darkorange2"))+
+  labs(color='Drug concentration [uM]')+
+   scale_x_continuous(breaks = 1:10) +
+ geom_errorbar(data=mean_drug2,
+                  aes(x=Passage,ymin=mean, ymax=mean,color=as.factor(drug)))+
+  scale_y_continuous(limits= c(1e1,3e8),trans = log_trans(), breaks = base_breaks())+
+  labs(title = "Mean viral titer for PR8 (wild type) and mutants per passage", subtitle =  "48 hpi",y="Viral titer PFU/mL", x = "Passage")+
+  theme(axis.text = element_text(size = 15)) +
+  facet_wrap(~variable)
+
+ 
+ mean_drug2 <- df_drug %>%
+   group_by(Passage,variable,drug) %>%
+   summarise(mean = mean(value), n = n())
+ 
+ ggplot(df_drug)+
+   geom_jitter(aes(x=Passage,y=value,color=as.factor(drug)), alpha=0.6, width=0.1)+ 
+   scale_color_manual(values=c("brown","blue3"))+
+   labs(color='Drug concentration [uM]')+
+   scale_x_continuous(breaks = 1:10) +
+   geom_errorbar(data=mean_drug2,
+               aes(x=Passage,ymin=mean, ymax=mean,color=as.factor(drug)))+
+   scale_y_continuous(limits= c(1e1,3e8),trans = log_trans(), breaks = base_breaks())+
+   labs(title = "Mean viral titer for PR8 (wild type) and mutants per passage", subtitle =  "48 hpi",y="Viral titer PFU/mL", x = "Passage")+
+   theme(axis.text = element_text(size = 15)) +
+   facet_wrap(~variable)
+ 
+###TRYING TO PLOT several passages per mutant
+
+ mean_drug2 <- df_drug %>%
+  group_by(Passage,variable,drug) %>%
+  summarise(mean = mean(value), n = n()) +
+  geom_errorbar(data=mean_drug2,
+                  aes(x=variable,ymin=mean, ymax=mean,color=as.factor(drug)))+
+  scale_y_continuous(limits= c(5e4,1e7),trans = log_trans(), breaks = base_breaks())+
+  labs(title = "PR8 (wild type) and mutants", subtitle =  "48 hpi",y="Viral titer PFU/mL", x = "Mutants")+
+  theme(axis.text = element_text(size = 15)) +
+  facet_wrap(~Passage)
+
+
+
+
+#####this is another graph
+
+
+plot_replicates <- ggplot(df_drug, aes(x = variable, y = value, fill = drug)) + 
+  stat_summary(fun = "mean", geom = "col") + 
+  stat_summary(fun.data = mean_sdl, geom = "errorbar", width = .5, fun.args = list(mult = 1))+
+  scale_y_log10(limits=c(1,1e8), breaks = trans_breaks("log10", function(x) 10^x), labels = trans_format("log10", math_format(10^.x))) +
+  theme_bw()
+
+  plot_replicates + annotation_logticks(sides="l") + labs(title = "PR8 (wild type) increasing [drug]", subtitle =  "48 hpi",y="Viral titer PFU/mL", x = "Favipiravir [uM]")
++ theme(axis.text = element_text(size = 20))
+
+
+
+
+####this is the plot of the comparison between mutants with replciates
+library(readxl)
+drug_replicates <- read_excel("drug_replicates.xlsx")
+View(drug_replicates) 
+  
+
+bilan <- aggregate(cbind(PB1,PA,PB1_PA,NS1,WT)~drug, data=drug_replicates , mean)
+rownames(bilan) <- bilan[,1]
+bilan <- as.matrix(bilan[,-1])
+
+
+#Plot boundaries
+lim <- 1.2*max(bilan)
+
+#A function to add arrows on the chart
+error.bar <- function(x, y, upper, lower=upper, length=0.1,...){
+  arrows(x,y+upper, x, y-lower, angle=90, code=3, length=length, ...)
+}
+
+#Then I calculate the standard deviation for each specie and condition :
+stdev <- aggregate(cbind(PB1,PA,PB1_PA,NS1,WT)~drug , data=drug_replicates , sd)
+rownames(stdev) <- stdev[,1]
+stdev <- as.matrix(stdev[,-1]) * 1.96 / 10
+
+#I am ready to add the error bar on the plot using my "error bar" function !
+ze_barplot <- barplot(bilan , beside=T , legend.text=T,col=c("skyblue" , "blue") , ylim=c(0,lim) ,  ylab="mean Viral titer")
+error.bar(ze_barplot,bilan, stdev)
+
+
+###########################still developing
+#another option
+require(MASS) # to access Animals data sets
+require(scales) # to access break formatting functions
+#data(Animals) # load data
+install.packages("ggplot2")
+library("ggplot2")
+
+install.packages("hmisc") # for mean_sdl
+
+library(tidyverse)
+install.packages("dplyr")
+library(dplyr, warn.conflicts = FALSE)
+library(tidyr)
+df_drug <- drug_replicates %>% 
+  gather(variable, value, PB1:WT)
+head(df_drug)
+
+new_row <- data_frame(drug=rep(0,3),
+                      variable=rep("WT",3),
+                      value=c(1.17E+07,7.67E+06,4.00E+06)
+            )
+                    
+
+df_drug1 <- rbind(df_drug,new_row)
+tail(df_drug1)
+str(df_drug1)
+
+mean_drug <- df_drug1 %>%
+  group_by(variable,drug) %>%
+  summarise(mean = mean(value), n = n())
+
+
+p <- ggplot(df_drug1)+
+  geom_jitter(aes(x=variable,y=value,color=as.factor(drug)), alpha=0.6, width=0.08)+ labs(color='Drug concentration')
+p + geom_errorbar(data=mean_drug, aes(x=variable,ymin=mean, ymax=mean,color=as.factor(drug)))+ scale_y_log10()+
+  labs(title = "PR8 (wild type) and mutants", subtitle =  "48 hpi",y="Viral titer PFU/mL", x = "Mutants")+ theme(axis.text = element_text(size = 15))
+
+plot_replicates <- ggplot(df_drug, aes(x = variable, y = value, fill = drug)) + 
+  stat_summary(fun = "mean", geom = "col") + 
+  stat_summary(fun.data = mean_sdl, geom = "errorbar", width = .5, fun.args = list(mult = 1))+
+scale_y_log10(limits=c(1,1e8), breaks = trans_breaks("log10", function(x) 10^x),
+              labels = trans_format("log10", math_format(10^.x))) +
+  theme_bw() 
+plot_replicates + annotation_logticks(sides="l") + labs(title = "PR8 (wild type) increasing [drug]", subtitle =  "48 hpi",y="Viral titer PFU/mL", x = "Favipiravir [uM]")
++ theme(axis.text = element_text(size = 20))
+
+
+#######new try######
+
+library(ggplot2)
+theme_set(
+  theme_classic() +
+    theme(legend.position = "top")
+)
+
+datadrug <- drug_replicates
+datadrug$drug <- as.factor(datadrug$drug)
+head(datadrug, 6)
+
+library(dplyr)
+
+datadrug.summary <- datadrug %>%
+  group_by(drug) %>%
+  summarise(
+    sd = sd(PB1, na.rm = TRUE),
+    PB1 = mean(PB1)
+  )
+datadrug.summary 
+
+ggplot(
+  datadrug.summary, 
+  aes(x = drug, y = PB1, ymin = drug-sd, ymax = drug+sd))
+
+#joining lines of average and changing colors Feb2022
+ggplot(df_drug)+
+  geom_jitter(aes(x=Passage,y=value,color=as.factor(drug), group='replicate number'),  alpha=0.6, width=0.1)+ 
+  scale_color_manual(values=c("tomato4","blue3"))+
+  labs(color='Drug concentration [uM]')+
+  scale_x_continuous(breaks = 1:10) +
+  geom_line(data = mean_drug2, aes(x=Passage, y= mean, group=drug, color=as.factor(drug)))+
+  geom_errorbar(data=mean_drug2,
+                aes(x=Passage,ymin=mean, ymax=mean,color=as.factor(drug)))+
+  scale_y_continuous(limits= c(1e1,3e8),trans = log_trans(), breaks = base_breaks())+
+  labs(title = "Mean viral titer for PR8 (wild type) and mutants per passage", subtitle =  "48 hpi",y="Viral titer PFU/mL", x = "Passage")+
+  theme(axis.text = element_text(size = 15)) +
+  facet_wrap(~variable)
+
+
+#Plot only WT
+library(tidyverse)
+ wt <- filter(df_drug, variable == 'WT')
+ 
+ mean_wt <- wt%>%
+   group_by(Passage,variable,drug) %>%
+   summarise(mean = mean(value), n = n())
+
+ggplot(wt)+
+  geom_jitter(aes(x=Passage,y=value,color=as.factor(drug), group='replicate number'),  alpha=0.6, width=0.1)+ 
+  scale_color_manual(values=c("tomato4","blue3"))+
+  labs(color='Drug concentration [uM]')+
+  scale_x_continuous(breaks = 1:10) +
+  geom_line(data = mean_wt, aes(x=Passage, y= mean, group=drug, color=as.factor(drug)))+
+  geom_errorbar(data=mean_wt,
+                aes(x=Passage,ymin=mean, ymax=mean,color=as.factor(drug)))+
+  scale_y_continuous(limits= c(1e1,3e8),trans = log_trans(), breaks = base_breaks())+
+  labs(title = "Mean viral titer for PR8 (wild type) and mutants per passage", subtitle =  "48 hpi",y="Viral titer PFU/mL", x = "Passage")+
+  theme(axis.text = element_text(size = 16),
+        axis.title=element_text(size=20),
+        plot.title=element_text(size=20),
+        legend.text=element_text(size=16), #change font size of legend text
+        legend.title=element_text(size=18)) +
+  facet_wrap(~variable)
+
+
