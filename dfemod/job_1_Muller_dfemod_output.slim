@@ -1,0 +1,88 @@
+// Keywords: 
+
+initialize() {
+//   setSeed(1703629174204);
+	initializeMutationRate(mu);// mu
+	initializeMutationType("m1", 1, "f", 0.0);//manual section 10.5
+	defineConstant("S",d);
+	defineConstant("m",mod);
+	initializeMutationType("m2", 1, "e", S);
+	m2.convertToSubstitution = F;
+	c(m1,m2).convertToSubstitution = F;// manual section 24.10.1
+	m1.mutationStackPolicy = "f"; //prevents stacking by keeping only the first mutation of type m1 at a given site
+	initializeGenomicElementType("g1", m1, 1); //epistatic locus
+	initializeGenomicElementType("g2", m2, 1);
+	initializeGenomicElement(g2, 0, 501);
+	initializeGenomicElement(g1, 502, 502);
+	initializeGenomicElement(g2, 503, 1000);
+	initializeRecombinationRate(0);
+}
+1 early() { sim.addSubpop("p1", 500);
+	p1.setCloningRate(1.0);
+	defineConstant("simID", getSeed());
+	defineConstant("LOG", community.createLogFile("/Volumes/homes/am21t144/simulations_IAV/test_slim_ratchet/haploid_iav/1000replicates/pop_log.csv", logInterval=10));
+	LOG.addCycle();
+	LOG.addPopulationSize();
+	LOG.addCustomColumn("simID", "getSeed();");
+	LOG.addCustomColumn("#DFEmod", "sim.countOfMutationsOfType(m1);");
+	LOG.addCustomColumn("#del", "sim.countOfMutationsOfType(m2);");
+	LOG.addCustomColumn("dfeMod", "mod;");
+	LOG.addCustomColumn("mut.rate", "mu;");
+}
+
+early() {
+	meanFitness = mean(p1.cachedFitness(NULL));
+	newSize = min(500,asInteger(2*500 * meanFitness));
+	p1.setSubpopulationSize(newSize);
+	
+	if (newSize == 0) {
+		line = paste(simID, sim.cycle, mod, mu);
+		writeFile("/Volumes/homes/am21t144/simulations_IAV/test_slim_ratchet/haploid_iav/1000replicates/extinction.txt", line, append=F);
+		
+		// remove any new mutations added to the disabled diploid genomes
+		sim.subpopulations.individuals.genome2.removeMutations();
+		
+		// remove mutations in the haploid genomes that have fixed
+		muts1 = sim.mutationsOfType(m1);
+		freqs1 = sim.mutationFrequencies(NULL, muts1);
+		if (any(freqs1 == 0.5))
+			sim.subpopulations.genomes.removeMutations(muts1[freqs1 == 0.5], T);
+		
+		muts2 = sim.mutationsOfType(m2);
+		freqs2 = sim.mutationFrequencies(NULL, muts2);
+		if (any(freqs2 == 0.5))
+			sim.subpopulations.genomes.removeMutations(muts2[freqs2 == 0.5], T);
+		sim.simulationFinished();
+	}
+	else if (newSize != 0)
+		line = paste(simID, sim.cycle, mod, mu);
+	writeFile("/Volumes/homes/am21t144/simulations_IAV/test_slim_ratchet/haploid_iav/1000replicates/extinction.txt", line, append=F);
+
+
+}
+
+mutationEffect(m2) {
+	counts =	individual.genome2.countOfMutationsOfType(m2);
+	if (individual.genome2.countOfMutationsOfType(m1))//The individual carrying this mutation (an object of class Individual)
+		return (1+S*m)^counts;
+	else
+		return effect;//The default relative fitness value calculated by SLiM for that individual
+
+}
+
+81 late() {
+	sim.subpopulations.individuals.genome2.removeMutations();
+	
+	// remove mutations in the haploid genomes that have fixed
+	muts1 = sim.mutationsOfType(m1);
+	freqs1 = sim.mutationFrequencies(NULL, muts1);
+	if (any(freqs1 == 0.5))
+		sim.subpopulations.genomes.removeMutations(muts1[freqs1 == 0.5], T);
+	
+	muts2 = sim.mutationsOfType(m2);
+	freqs2 = sim.mutationFrequencies(NULL, muts2);
+	if (any(freqs2 == 0.5))
+		sim.subpopulations.genomes.removeMutations(muts2[freqs2 == 0.5], T);
+	
+	sim.simulationFinished();
+}
