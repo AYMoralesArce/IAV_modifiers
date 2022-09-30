@@ -1,0 +1,1492 @@
+Open Rstudio
+#Go to tools-terminal-new terminal
+#paste the command to run R script that will run slim inside R. Remember to check the names of the script and output name of slim
+#also check the R script to see where are the inputs and outputs paths
+
+#This command should be run in the terminal of R, and it basically calls the script that will run any specific simulation for a 1000 times (replicates)
+Rscript /Users/anamoralesarae/Desktop/slim_template.R slim_PSI_S_110718 slim_PSI_S_110718.txt
+
+
+================================================================================
+# This R script is to estimate whole number of replicates, several output ms simulations and estimate Tajimas D and other stats
+================================================================================
+
+header <- "ms 10 1"
+tajd <- NULL
+f <- dir("/Users/anamoralesarae/Dropbox (ASU)/slim_outputs/deleterious_091818", full.names = TRUE)
+header <- "ms 10 1"
+tajd <- NULL
+# loop for all files
+for (i in 1:length(f)){
+  onefile <- f[i]
+  tmp <- c(header, readLines(onefile))
+  write(tmp, "tmp.msout")
+  ms <- readMS("tmp.msout")
+  n <- neutrality.stats(ms)
+  gn <- get.neutrality(n)
+  tajd <- rbind(tajd, gn[[1]])
+  # sfs
+  
+}
+
+colnames(tajd) <- colnames(gn[[1]])
+
+#este es para ver los tajimas y otros stats de los primeros 6 pop, de la cantidad que sea que estoy corriendo
+
+head(tajd)
+dim(tajd)
+
+#este es para que haga un promedio de las tajimas con todas, pero si hay alguna simulacion que tuvo 0 segsites, entonces el resultado va a ser como NA. significa que no esta leyendo todos los archivos porque hay algunos que no se pueden leer si son 0
+
+mean(tajd[,1])
+sd(tajd[,1])
+
+#I got some simulations with zero segregating sites so I have to add "na.omit" for R to  omit them from the average
+
+mean(na.omit(tajd[,1]))
+sd(na.omit(tajd[,1]))
+
+#mean for segregating sites
+
+mean(na.omit(tajd[,2]))
+sd(na.omit(tajd[,2]))
+
+=============================================================================
+#This script is for using the results of replicated simulations and plot an average SFS. Notice that all numbers can be changed. En este caso yo estaba analizando 1000 simulaciones, pero 4 de ellas me dieron 0 segregating sites, entonces por eso en este script se incluyen excepciones para los que tengan 0. O sea en total tengo 996 simulaciones. Ademas como antes de poder hacer esto yo estaba contado los theta manualmente, hay unos archivos que tienen mas lineas de las esperadas *mas espacios en blanco al final en donde yo sumaba, pero por eso rebeca le cambio en el script algo para decir que fuera del largo que tuvieran y no 10.
+=============================================================================
+
+f <- dir("/Users/anamoralesarae/Desktop/1000replicates/", full.names = TRUE)
+nind <- 10
+myList <- vector("list", length(f))
+for (i in 1:length(f)) {
+  data <- readLines(f[i])
+  tmp <- grep("segsites: 0", data)
+  if (length(tmp) != 0) {
+    myList[[i]] <- matrix(0, nrow = 2, ncol = 1)
+    print("found segsites 0")
+  }
+
+  if (length(tmp) == 0) {
+    data <- data[-c(1:3)]
+    myMat <- matrix(unlist(strsplit(data, "")), nrow = nind, byrow = TRUE)
+    counts <- apply(myMat, 2, function(x) sum(as.numeric(x)))
+    tmp <- t(data.matrix(table(counts)))
+    tmp2 <- rbind(as.numeric(colnames(tmp)), tmp)
+    myList[[i]] <- tmp2
+  }
+}
+names(myList) <- f
+
+mycounts <- lapply(myList, function(x) x[1,])
+uniquecounts <- sort(unique(unlist(mycounts)))
+myMat <- matrix(0, nrow = length(f), ncol = max(as.numeric(uniquecounts)))
+
+for (i in 1:length(f)) {
+  partOfList <- myList[[i]]
+  for (j in 1:ncol(partOfList)) {
+    myMatCol <- as.numeric(partOfList[1, j])
+    value <- partOfList[2, j]
+    myMat[i, myMatCol] <- as.numeric(value)
+  }
+}
+myMean <- apply(myMat, 2, mean)
+plot(myMean, type = "l", xlim = c(0, 10), las = 1, xlab = "counts", ylab = "Mean_theta")
+
+#Another option to modify the xlim is:
+
+plot(myMean, type = "l",  xaxt="n", xlim = c(0, 10), ylim= c(0, 25), xlab = "counts", ylab = "Mean_theta")
+axis(1, at = 0:10)
+
+#
+df <- data.frame(myMat)
+rownames(df) <- names(myList)
+
+===============================================================================
+This R script estimates Tajima D and SFS for only 1 
+
+================================================================================
+setwd("~/Dropbox (ASU)/SfsPlot")
+onefile <- "Sim180918.txt" # el nombre cambia dependiendo del archivo que se usa
+header <- "ms 10 1"  #El numero de en medio signifa samples y varia dependiendo de cuantos le pido que muestree, y el 1 significa una poblacion
+tmp <- c(header, readLines(onefile))
+write(tmp, "tmp.msout")
+ms <- readMS("tmp.msout")
+n <- neutrality.stats(ms)
+gn <- get.neutrality(n)
+tajd <- rbind(tajd, gn[[1]])
+colnames(tajd) <- colnames(gn[[1]])
+
+tajd
+head(tajd)
+dim(tajd)
+
+#ahora el sfs
+
+con <- detail.stats(ms, site.spectrum = TRUE)
+res <- get.detail(con)
+allelefreqs <- con@region.stats@minor.allele.freqs[[1]]
+theta <- table(allelefreqs)
+mycounts <- as.numeric(names(theta)) * N
+
+sfsList[[i]] <- rbind(mycounts, theta)
+
+unique(unlist(lapply(sfsList, function(x) x[1,])))
+
+
+plot(theta, ylab = "counts", xlab = "allele_frequency")
+
+mycounts <- as.numeric(names(theta))
+
+##Occurrence?? I am not sure what it does
+ 
+freq.table <- list()
+freq.table[[1]] <- table(allelefreqs) 
+sfs <- data.frame(freq.table)
+
+plot(sfs, ylab = "counts", xlab = "allele_frequency")
+
+=====================================================================================
+Analysis of only one simulation (ms file) from a subsample of 10 individuals
++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++
+
+header <- "ms 10 1" #el numero de muestras puede cambiar, aquí se usa 10 porque estoy maestreando 10 ind de la población
+GENOME.class <- readMS(file = "ms_replicate_1.txt")
+GENOME.class <- neutrality.stats(GENOME.class)
+get.neutrality(GENOME.class)
+GENOME.class@Tajima.D
+
+=====================================================================================
+Esto es para hacer correr desde la terminal de R un script que usa un script para Slim, y lo repite hasta mil veces y le dice donde crear la carpeta con los resultados
+======================================================================================
+#usage: Rscript [full path to script] [name of output directory to be created] [name of script]
+#example:
+
+Rscript /Users/anamoralesarae/Desktop/slim_template.R deleterious_092418 slim_del_092418.txt
+
+#remember this has to be run from the Terminal not the Console
+
+=========================================================================================
+Este es el script hecho para que R corra el script de slim
+
+=========================================================================================
+#
+args <- commandArgs(trailingOnly=TRUE)
+
+#aqui le doy a R la direccion de slim
+slim_path <- "/usr/local/bin/slim"
+
+#aqui le digo a R a cual directorio enviar los resultados, que es donde estoy trabajando
+slim_directory <- "/Users/anamoralesarae/Dropbox\ (ASU)/slim_outputs"
+script_directory <- "/Users/anamoralesarae/Dropbox\ (ASU)/slim_scripts"
+
+run_directory <- paste(slim_directory, args[1], sep = "/")
+dir.create(run_directory)
+
+#aqui le digo a R cual script usar, y le doy la direccion de donde encontrarlo
+script_path <- paste(script_directory, args[2], sep = "/")
+
+script_text <- readLines(script_path)
+code <- data.frame(gsub('filePath="ms.txt"', paste0('filePath="', run_directory, '/ms.txt"'), script_text))
+names(code) <- "//"
+
+script_file <- write.csv2(code, file = script_path, quote = FALSE, row.names = FALSE)
+
+#aqui le digo a R cual funcion buscar
+doOneSLiMRun <- function(seed, script)
+{
+  system2(slim_path, args = c("-s", seed, shQuote(script)), stdout=T, stderr=T)
+}
+
+#aqui creo el objeto reps que significa replications y en este caso son 1000
+reps <- 1000
+
+#aqui hago un for loop para que haga de 1 a 1000 replications
+for (iter in c(1:reps))
+{
+  # collect output from running the script once
+  output <- doOneSLiMRun(iter, script_path)
+  
+  #Rename every output
+  outfile <- paste0(run_directory, "/ms.txt")
+  file.rename(outfile, paste0(run_directory, "/ms_replicate_", iter, ".txt"))
+  
+  # print message
+  print(paste0('replicate #', iter, ' done!'))
+}
+
+=====================================================================================
+Este script para Slim me lo envio Andrew, y es para incluir psi en la simulation
+=====================================================================================
+initialize() {
+	initializeMutationRate(1e-6);
+	initializeMutationType(1,1,"f",0);
+	initializeGenomicElementType("g1", m1, 1.0);
+	initializeGenomicElement(g1, 0, 10000);
+	initializeRecombinationRate(1e-8);
+		}
+1 {
+	defineConstant("N",1000);
+	sim.addSubpop("p1", N);
+	
+	defineConstant("mmcgens2",c(10000:11000));
+	defineConstant("psi",0.3);
+//if PSI is not CERO
+	if(psi!=0){
+	for(gen in mmcgens2){
+
+		sim.registerEarlyEvent(NULL,s2.source, gen, gen);
+		sim.registerModifyChildCallback(NULL,s3.source,NULL,gen,gen);
+		sim.registerLateEvent(NULL,s4.source, gen, gen);
+		
+		}}
+
+	sim.deregisterScriptBlock(s2);
+	sim.deregisterScriptBlock(s3);
+	sim.deregisterScriptBlock(s4);
+}
+
+
+s2 2 early(){
+	sim.addSubpopSplit(2,1,p1);
+	p1.setMigrationRates(2, psi);
+	countingp1= N-round(N*psi);
+	countingother=round(N-countingp1);	
+	countingp1=countingp1+(N-(countingp1+(countingother)));
+	p1.tag=asInteger(countingp1);
+	p2.tag=asInteger(countingother);
+	}
+	
+s3 2 modifyChild(){
+	if(subpop.id==1){
+		if (sourceSubpop.id==1 & p1.tag==0){
+			return(F);}
+		else if (sourceSubpop.tag==0){
+			return(F);}
+		else{
+			sourceSubpop.tag=asInteger(sourceSubpop.tag-1);
+			return(T);}}
+	else{return(T);}
+}	
+	
+	
+s4 2 late(){
+	p2.setSubpopulationSize(0);
+		}
+
+==================================================================================
+Este es el script de PSI slim modificado para TB
+==================================================================================
+// Ne=1000, u= 10-6, gen(burnin)= 10000, PSI= 0.001
+initialize() {
+	initializeMutationRate(1e-6);
+	initializeMutationType("m1", 1.0, "e", -0.001);   // weakly deleterious
+	initializeMutationType("m2", 1.0, "f", -0.01);   // strongly deleterious
+	initializeGenomicElementType("g1", m1, 1.0);
+	initializeGenomicElement(g1, 0, 441153);
+	initializeRecombinationRate(0);
+}1 {
+	defineConstant("N",1000);
+	sim.addSubpop("p1", N);
+	p1.setCloningRate(1.0);
+	defineConstant("mmcgens2",c(10000:11000));
+	defineConstant("psi",0.001);
+	
+	if(psi!=0){
+		for(gen in mmcgens2){
+			
+			sim.registerEarlyEvent(NULL,s2.source, gen, gen);
+			sim.registerModifyChildCallback(NULL,s3.source,NULL,gen,gen);
+			sim.registerLateEvent(NULL,s4.source, gen, gen);
+		
+		}}
+	
+	sim.deregisterScriptBlock(s2);
+	sim.deregisterScriptBlock(s3);
+	sim.deregisterScriptBlock(s4);
+}
+
+
+s2 2 early(){
+	sim.addSubpopSplit(2,1,p1);
+	p1.setCloningRate(1.0);
+	p1.setMigrationRates(2, psi);
+	countingp1= N-round(N*psi);
+	countingother=round(N-countingp1);
+	countingp1=countingp1+(N-(countingp1+(countingother)));
+	p1.tag=asInteger(countingp1);
+	p2.tag=asInteger(countingother);
+}
+
+s3 2 modifyChild(){
+	if(subpop.id==1){
+		if (sourceSubpop.id==1 & p1.tag==0){
+			return(F);}
+		else if (sourceSubpop.tag==0){
+			return(F);}
+		else{
+			sourceSubpop.tag=asInteger(sourceSubpop.tag-1);
+			return(T);}}
+	else{return(T);}
+}
+
+
+s4 2 late(){
+	p2.setSubpopulationSize(0);
+}
+
+late() {
+	// remove any new mutations added to the disabled diploid genomes
+	sim.subpopulations.individuals.genome2.removeMutations();
+	
+	// remove mutations in the haploid genomes that have fixed
+	muts = sim.mutationsOfType(m1);
+	freqs = sim.mutationFrequencies(NULL, muts);
+	sim.subpopulations.genomes.removeMutations(muts[freqs == 0.5], T);
+}
+11000 late() {
+	sim.outputFixedMutations();
+	p1.outputMSSample(10, replace=F, filePath="/Users/anamoralesarae/Dropbox (ASU)/slim_outputs/PSI_S_100118/ms.txt");
+}
+
+=========================================================================================
+Este es el script donde se incluye el bottleneck
+=========================================================================================
+//
+// Ne=1000, u= 10-6, gen(burnin)= 10000, PSI= 0.001, bottleneck=1% (It means reduced to 100 individuals)
+
+initialize() {
+	initializeMutationRate(1e-6);
+	initializeMutationType("m1", 1.0, "e", -0.001);   // weakly deleterious
+	initializeMutationType("m2", 1.0, "f", -0.01);   // strongly deleterious
+	initializeGenomicElementType("g1", m1, 1.0);
+	initializeGenomicElement(g1, 0, 441153);
+	initializeRecombinationRate(0);
+}1 {
+	defineConstant("N",1000);
+	sim.addSubpop("p1", N);
+	p1.setCloningRate(1.0);
+	defineConstant("mmcgens2",c(10000:11000));
+	defineConstant("psi",0.001);
+	
+	if(psi!=0){
+		for(gen in mmcgens2){
+			
+			sim.registerEarlyEvent(NULL,s2.source, gen, gen);
+			sim.registerModifyChildCallback(NULL,s3.source,NULL,gen,gen);
+			sim.registerLateEvent(NULL,s4.source, gen, gen);
+		
+		}}
+	
+	sim.deregisterScriptBlock(s2);
+	sim.deregisterScriptBlock(s3);
+	sim.deregisterScriptBlock(s4);
+}
+
+
+s2 2 early(){
+	sim.addSubpopSplit(2,1,p1);
+	p1.setCloningRate(1.0);
+	p1.setMigrationRates(2, psi);
+	countingp1= N-round(N*psi);
+	countingother=round(N-countingp1);
+	countingp1=countingp1+(N-(countingp1+(countingother)));
+	p1.tag=asInteger(countingp1);
+	p2.tag=asInteger(countingother);
+}
+
+s3 2 modifyChild(){
+	if(subpop.id==1){
+		if (sourceSubpop.id==1 & p1.tag==0){
+			return(F);}
+		else if (sourceSubpop.tag==0){
+			return(F);}
+		else{
+			sourceSubpop.tag=asInteger(sourceSubpop.tag-1);
+			return(T);}}
+	else{return(T);}
+}
+
+
+s4 2 late(){
+	p2.setSubpopulationSize(0);
+}
+
+10000 {p1.setSubpopulationSize(100);}
+
+late() {
+	// remove any new mutations added to the disabled diploid genomes
+	sim.subpopulations.individuals.genome2.removeMutations();
+	
+	// remove mutations in the haploid genomes that have fixed
+	muts = sim.mutationsOfType(m1);
+	freqs = sim.mutationFrequencies(NULL, muts);
+	sim.subpopulations.genomes.removeMutations(muts[freqs == 0.5], T);
+}
+11000 late() {
+	sim.outputFixedMutations();
+	p1.outputMSSample(10, replace=F, filePath="/Users/anamoralesarae/Dropbox (ASU)/slim_outputs/slim_Bottleneck_101018/ms.txt");
+}
+
+=========================================================================================
+October 17, 2018
++++++++++++++++++++++++
+
+This are the scripts I have run for the last months, I keep them open in R studio:
+#This command should be run in the terminal of R, in Studio, it opens besides console, and it basically calls the script that will run any specific simulation for a 1000 times (replicates). The script to run slim inside of R is given at the end of this notes, and right now I have it permanently placed in the Desktop.
+
+Rscript /Users/anamoralesarae/Desktop/slim_template.R slim_Bottleneck_101618 Fin_Bottleneck.txt
+
+f <- dir("/Users/anamoralesarae/Dropbox (ASU)/slim_outputs/slim_Bottleneck_101518", full.names = TRUE)
+header <- "ms 10 1"
+tajd <- NULL
+# loop for all files
+for (i in 1:length(f)){
+  onefile <- f[i]
+  tmp <- c(header, readLines(onefile))
+  write(tmp, "tmp.msout")
+  ms <- readMS("tmp.msout")
+  n <- neutrality.stats(ms)
+  gn <- get.neutrality(n)
+  tajd <- rbind(tajd, gn[[1]])
+  # sfs
+  
+}
+
+colnames(tajd) <- colnames(gn[[1]])
+
+#este es para ver los tajimas y otros stats de los primeros 6 pop, de la cantidad que sea que estoy corriendo
+
+head(tajd)
+dim(tajd)
+
+#este es para que haga un promedio de las tajimas con todas, pero si hay alguna simulacion que tuvo 0 segsites, entonces el resultado va a ser como NA. significa que no esta leyendo todos los archivos porque hay algunos que no se pueden leer si son 0
+
+mean(tajd[,1])
+sd(tajd[,1])
+
+#I got some simulations with zero segregating sites so I have to add "na.omit" for R to  omit them from the average
+
+mean(na.omit(tajd[,1]))
+sd(na.omit(tajd[,1]))
+
+#mean for segregating sites
+
+mean(na.omit(tajd[,2]))
+sd(na.omit(tajd[,2]))
+
+f <- dir("/Users/anamoralesarae/Dropbox (ASU)/slim_outputs/slim_Bottleneck_101518", full.names = TRUE)
+nind <- 10
+myList <- vector("list", length(f))
+for (i in 1:length(f)) {
+  data <- readLines(f[i])
+  tmp <- grep("segsites: 0", data)
+  if (length(tmp) != 0) {
+    myList[[i]] <- matrix(0, nrow = 2, ncol = 1)
+    print("found segsites 0")
+  }
+  
+  if (length(tmp) == 0) {
+    data <- data[-c(1:3)]
+    myMat <- matrix(unlist(strsplit(data, "")), nrow = nind, byrow = TRUE)
+    counts <- apply(myMat, 2, function(x) sum(as.numeric(x)))
+    tmp <- t(data.matrix(table(counts)))
+    tmp2 <- rbind(as.numeric(colnames(tmp)), tmp)
+    myList[[i]] <- tmp2
+  }
+}
+names(myList) <- f
+
+mycounts <- lapply(myList, function(x) x[1,])
+uniquecounts <- sort(unique(unlist(mycounts)))
+myMat <- matrix(0, nrow = length(f), ncol = max(as.numeric(uniquecounts)))
+
+for (i in 1:length(f)) {
+  partOfList <- myList[[i]]
+  for (j in 1:ncol(partOfList)) {
+    myMatCol <- as.numeric(partOfList[1, j])
+    value <- partOfList[2, j]
+    myMat[i, myMatCol] <- as.numeric(value)
+  }
+}
+myMean <- apply(myMat, 2, mean)
+plot(myMean, type = "l", xlim = c(0, 10), las = 1, xlab = "counts_Bottleneck_Psi100_101518", ylab = "Mean_theta")
+
+#Another option to modify the xlim is:
+
+plot(myMean, type = "l",  xaxt="n", xlim = c(0, 10), ylim= c(0, 5), xlab = "counts_S+Psi_092818", ylab = "Mean_theta")
+axis(1, at = 0:10)
+
+
+#Note I use lastly
+plot(myMean, type = "l", xlim = c(0, 10), las = 1, xlab = "counts_Bottleneck_Psi100_101518", ylab = "Mean_theta")
+axis(1, at = 0:10)
+
+
+******************
+slim_template.R
+******************
+#
+args <- commandArgs(trailingOnly=TRUE)
+
+#aqui le doy a R la direccion de slim
+slim_path <- "/usr/local/bin/slim"
+
+#aqui le digo a R a cual directorio enviar los resultados, que es donde estoy trabajando
+slim_directory <- "/Users/anamoralesarae/Dropbox\ (ASU)/slim_outputs"
+script_directory <- "/Users/anamoralesarae/Dropbox\ (ASU)/slim_scripts"
+
+run_directory <- paste(slim_directory, args[1], sep = "/")
+dir.create(run_directory)
+
+#aqui le digo a R cual script usar, y le doy la direccion de donde encontrarlo
+script_path <- paste(script_directory, args[2], sep = "/")
+
+script_text <- readLines(script_path)
+code <- data.frame(gsub('filePath="ms.txt"', paste0('filePath="', run_directory, '/ms.txt"'), script_text))
+names(code) <- "//"
+
+script_file <- write.csv2(code, file = script_path, quote = FALSE, row.names = FALSE)
+
+#aqui le digo a R cual funcion buscar
+doOneSLiMRun <- function(seed, script)
+{
+  system2(slim_path, args = c("-s", seed, shQuote(script)), stdout=T, stderr=T)
+}
+
+#aqui creo el objeto reps que significa replications y en este caso son 1000
+reps <- 1000
+
+#aqui hago un for loop para que haga de 1 a 1000 replications
+for (iter in c(1:reps))
+{
+  # collect output from running the script once
+  output <- doOneSLiMRun(iter, script_path)
+  
+  #Rename every output
+  outfile <- paste0(run_directory, "/ms.txt")
+  file.rename(outfile, paste0(run_directory, "/ms_replicate_", iter, ".txt"))
+  
+  # print message
+  print(paste0('replicate #', iter, ' done!'))
+}
+==================================================================================
+General Slim script for making a grid of parameters
+==================================================================================
+// Ne=1000, u= 10^-6 to 10^-9, gen(burnin)= 10000, PSI= 0 to 0.2, bottleneck=0.001 to 0.1 
+initialize() {
+	initializeMutationRate(mu);
+	initializeMutationType("m1", 1.0, "e", -0.001);   // weakly deleterious
+	initializeMutationType("m2", 1.0, "f", -0.01);   // strongly deleterious
+	initializeGenomicElementType("g1", m1, 1.0);
+	initializeGenomicElement(g1, 0, 441153);
+	initializeRecombinationRate(0);
+}1 {
+	defineConstant("N",1000);
+	sim.addSubpop("p1", N);
+	p1.setCloningRate(1.0);
+	defineConstant("mmcgens2",c(10000:11000));
+	defineConstant("psi",psi);
+	
+	if(psi!=0){
+		for(gen in mmcgens2){
+			
+			sim.registerEarlyEvent(NULL,s2.source, gen, gen);
+			sim.registerModifyChildCallback(NULL,s3.source,NULL,gen,gen);
+			sim.registerLateEvent(NULL,s4.source, gen, gen);
+		
+		}}
+	
+	sim.deregisterScriptBlock(s2);
+	sim.deregisterScriptBlock(s3);
+	sim.deregisterScriptBlock(s4);
+}
+
+
+s2 2 early(){
+	sim.addSubpopSplit(2,1,p1);
+	p1.setCloningRate(1.0);
+	p1.setMigrationRates(2, psi);
+	countingp1= N-round(N*psi);
+	countingother=round(N-countingp1);
+	countingp1=countingp1+(N-(countingp1+(countingother)));
+	p1.tag=asInteger(countingp1);
+	p2.tag=asInteger(countingother);
+}
+
+s3 2 modifyChild(){
+	if(subpop.id==1){
+		if (sourceSubpop.id==1 & p1.tag==0){
+			return(F);}
+		else if (sourceSubpop.tag==0){
+			return(F);}
+		else{
+			sourceSubpop.tag=asInteger(sourceSubpop.tag-1);
+			return(T);}}
+	else{return(T);}
+}
+
+
+s4 2 late(){
+	p2.setSubpopulationSize(0);
+}
+
+10001 {p1.setSubpopulationSize(bn);}
+10090 {p1.setSubpopulationSize(1000);}
+
+late() {
+	// remove any new mutations added to the disabled diploid genomes
+	sim.subpopulations.individuals.genome2.removeMutations();
+	
+	// remove mutations in the haploid genomes that have fixed
+	muts = sim.mutationsOfType(m1);
+	freqs = sim.mutationFrequencies(NULL, muts);
+	sim.subpopulations.genomes.removeMutations(muts[freqs == 0.5], T);
+}
+11000 late() {
+	sim.outputFixedMutations();
+	p1.outputMSSample(10, replace=F, filePath="/Users/ana/Dropbox (ASU)/slim_outputs/slim_grid/ms.txt");
+}
+=====================================================================================
+Until Thursday Nov 15 2018
+=====================================================================================
+#Arguments
+
+#args <- commandArgs(trailingOnly=TRUE)
+#arg1 <- args[1]
+#arg2 <- args[2]
+#
+# For trouble shooting
+arg1 <- "slim_script"
+arg2 <- "slim_script.txt"
+
+#aqui le doy a R la direccion de slim
+
+slim_path <- "/usr/local/bin/slim"
+
+#aqui le digo a R a cual directorio enviar los resultados, que es donde estoy trabajando
+
+slim_directory <- "/Users/ana/Dropbox (ASU)/slim_outputs"
+script_directory <- "/Users/ana/Dropbox (ASU)/slim_scripts"
+
+run_directory <- paste(slim_directory, arg1, sep = "/")
+if (!dir.exists(run_directory))
+  dir.create(run_directory)
+
+#aqui le digo a R cual script usar, y le doy la direccion de donde encontrarlo
+
+script_path <- paste(script_directory, arg2, sep = "/")
+
+script_text <- readLines(script_path)
+code <- data.frame(gsub('filePath="ms.txt"', paste0('filePath="', run_directory, '/ms.txt"'), script_text))
+names(code) <- "//"
+
+script_file <- write.csv2(code, file = script_path, quote = FALSE, row.names = FALSE)
+
+mu <- runif(max = 0.000001, min = 0.000000001, n = 1)
+psi <- runif(max = 0.2, min = 0, n = 1)
+bn <- runif(max = 0.1, min = 0.001, n = 1)
+
+#aqui le digo a R cual funcion buscar
+
+doOneSLiMRun <- function(seed, script)
+{
+  system2(slim_path, args = c("-s", seed, "-d mu=", mu, "-d psi", psi, "-d bn", bn, shQuote(script)), stdout=T, stderr=T)
+}
+
+
+#aqui creo el objeto reps que significa replications y en este caso son 1000
+reps <- 1000
+
+#aqui hago un for loop para que haga de 1 a 1000 replications
+iter <- 1
+for (iter in c(1:reps))
+{
+  # collect output from running the script once
+  output <- doOneSLiMRun(iter, script_path)
+  
+  #Rename every output
+  outfile <- paste0(run_directory, "/ms.txt")
+  file.rename(outfile, paste0(run_directory, "/ms_replicate_", iter, ".txt"))
+  new <- paste0(run_directory, "/ms_replicate_", iter, ".txt")
+  
+  header <- "ms 10 1"
+  onefile <- new
+  tmp <- c(header, readLines(onefile))
+  write(tmp, "tmp.msout")
+  ms <- readMS("tmp.msout")
+  n <- neutrality.stats(ms)
+  gn <- get.neutrality(n)
+  tajd <- rbind(tajd, gn[[1]])
+  
+
+# calculate summary statistics
+ write(sumstats, "masterfile", append = TRUE)
+  
+  # print message
+  print(paste0('replicate #', iter, ' done!'))
+}
+=============================================================================
+EasyABC in R and using Slim. It follows exactly the instructions in the slim manual v3 page 204. First I create a slim script and saved it in home. 
+===============================================================================
+#slim script salvado en el home directory
+
+initialize() {
+initializeMutationRate(mu);//aqui es donde se deja abierta la constante que con -d se reemplaza
+initializeMutationType("m1", 0.5, "f", 0.0);
+initializeGenomicElementType("g1", m1, 1.0);
+initializeGenomicElement(g1, 0, 999999);
+initializeRecombinationRate(1e-8);
+
+}
+
+1 { sim.addSubpop("p1",100);}
+1000 late() { cat(sim.mutations.size() + "\n"); }
+
+#R script
+runSLiM <- function(x)
+{
+  seed <- x[1]
+  mu <- x[2]
+  #cat("Running SLiM with seed ", seed, ", mu = ", mu, "\n");
+  
+  output <- system2("/usr/local/bin/slim", c("-d", paste0("mu=", mu),
+  "-s", seed, " ~/abc.slim"), stdout=T) 
+  as.numeric(output[length(output)])
+}
+runSLiM(c(100030, 1e-7))
+
+library(EasyABC)
+# Set up and run our ABC
+prior <- list(c("unif", 1e-9, 1e-6))
+observed <- 207
+
+ABC_SLiM <- ABC_sequential(method="Lenormand", use_seed=TRUE, model=runSLiM, prior=prior, summary_stat_target=observed, nb_simul=1000)
+
+sum(ABC_SLiM$param * ABC_SLiM$weights)
+
+log_param <- log(ABC_SLiM$param, 10)
+breaks <- seq(from=min(log_param), to=max(log_param), length.out=8)
+quartz(width=4, height=4)
+hist(log_param, xlim=c(-9, -6), breaks=breaks, col="gray",
+     main="Posterior distribution of mu", xlab="Estimate of mu", xaxt="n") 
+axis(side=1, at=-6:-9, labels=c("1e-6", "1e-7", "1e-8", "1e-9"))
+
+==============================================================================
+Modified script for my simulations called "test.slim" that I saved in home directory "ana"
+
+In the terminal I say the command:  slim -d mu=1e-7 -d p=0.01 -d b=10 ~/test.slim
+==============================================================================
+// Ne=1000, u= 10^-6 to 10^-9, gen(burnin)= 10000, PSI= 0 to 0.2, bottleneck=1 to 100
+initialize() {
+	initializeMutationRate(mu);
+	initializeMutationType("m1", 1.0, "e", -0.001);   // weakly deleterious
+	initializeMutationType("m2", 1.0, "f", -0.01);   // strongly deleterious (actually Ne*s= 1 so it's effectively neutral
+	initializeGenomicElementType("g1", m1, 1.0);
+	initializeGenomicElement(g1, 0, 441153);
+	initializeRecombinationRate(0);
+}1 {
+	defineConstant("N",1000);
+	sim.addSubpop("p1", N);
+	p1.setCloningRate(1.0);
+	defineConstant("mmcgens2",c(10000:11000));
+	defineConstant("psi",p);
+	
+	if(psi!=0){
+		for(gen in mmcgens2){
+			
+			sim.registerEarlyEvent(NULL,s2.source, gen, gen);
+			sim.registerModifyChildCallback(NULL,s3.source,NULL,gen,gen);
+			sim.registerLateEvent(NULL,s4.source, gen, gen);
+		
+		}}
+	
+	sim.deregisterScriptBlock(s2);
+	sim.deregisterScriptBlock(s3);
+	sim.deregisterScriptBlock(s4);
+}
+
+
+s2 2 early(){
+	sim.addSubpopSplit(2,1,p1);
+	p1.setCloningRate(1.0);
+	p1.setMigrationRates(2, psi);
+	countingp1= N-round(N*psi);
+	countingother=round(N-countingp1);
+	countingp1=countingp1+(N-(countingp1+(countingother)));
+	p1.tag=asInteger(countingp1);
+	p2.tag=asInteger(countingother);
+}
+
+s3 2 modifyChild(){
+	if(subpop.id==1){
+		if (sourceSubpop.id==1 & p1.tag==0){
+			return(F);}
+		else if (sourceSubpop.tag==0){
+			return(F);}
+		else{
+			sourceSubpop.tag=asInteger(sourceSubpop.tag-1);
+			return(T);}}
+	else{return(T);}
+}
+
+
+s4 2 late(){
+	p2.setSubpopulationSize(0);
+}
+
+10001 {p1.setSubpopulationSize(b);}
+10090 {p1.setSubpopulationSize(1000);}
+
+late() {
+	// remove any new mutations added to the disabled diploid genomes
+	sim.subpopulations.individuals.genome2.removeMutations();
+	
+	// remove mutations in the haploid genomes that have fixed
+	muts = sim.mutationsOfType(m1);
+	freqs = sim.mutationFrequencies(NULL, muts);
+	sim.subpopulations.genomes.removeMutations(muts[freqs == 0.5], T);
+}
+11000 late() { cat(sim.mutations.size() + "\n"); }
+
+##It gives me the following result in the terminal:
+#// Initial random seed:
+#1798272054631
+
+#// RunInitializeCallbacks():
+#initializeMutationRate(1e-07);
+#initializeMutationType(1, 1, "e", -0.001);
+#initializeMutationType(2, 1, "f", -0.01);
+#initializeGenomicElementType(1, m1, 1);
+#initializeGenomicElement(g1, 0, 441153);
+#initializeRecombinationRate(0);
+
+#// Starting run at generation <start>:
+#1 
+
+#444 //these are the total number of mutations
+
+_______________________________________________________________________
+R script for ABC
+-----------------------------------------------------------------------
+
+runSLiM <- function(x)
+{
+  seed <- x[1]
+  mu <- x[2]
+  p <- x[3]
+  b <- x[4]
+  #cat("Running SLiM with seed ", seed, ", mu = ", mu, "\n");
+  
+  output <- system2("/usr/local/bin/slim", c("-d", paste0("mu=", mu, "p=", p, "b=", b),
+  "-s", seed, " ~/test.slim"), stdout=T) 
+  as.numeric(output[length(output)])
+}
+runSLiM(c(100030, 1e-7, 0.01, 10))
+
+
+library(EasyABC)
+# Set up and run our ABC
+prior <- list(c("unif", 1e-9, 1e-6),c("unif",0,0.2),c("unif",1,100))
+observed <- 444
+
+ABC_SLiM <- ABC_sequential(method="Lenormand", use_seed=TRUE, model=runSLiM, prior=prior, summary_stat_target=observed, nb_simul=1000)
+
+sum(ABC_SLiM$param * ABC_SLiM$weights)
+
+log_param <- log(ABC_SLiM$param, 10)
+breaks <- seq(from=min(log_param), to=max(log_param), length.out=8)
+quartz(width=4, height=4)
+hist(log_param, xlim=c(-9, -6), breaks=breaks, col="gray",
+     main="Posterior distribution of mu", xlab="Estimate of mu", xaxt="n") 
+axis(side=1, at=-6:-9, labels=c("1e-6", "1e-7", "1e-8", "1e-9"))
+
+
+=======================
+runSLiM <- function(x)
+{
+  seed <- x[1]
+  mu <- x[2]
+  p <- x[3]
+  b <- x[4]
+  #cat("Running SLiM with seed ", seed, ", mu = ", mu, "\n");
+  
+  output <- system2("/usr/local/bin/slim", c("-d", paste0("mu=", mu), "-d", paste0("p=", p), "-d", paste0("bn=", bn),
+                                             "-s", seed, " ~/test.slim"), stdout=T) 
+  as.numeric(output[length(output)])
+}
+runSLiM(c(100030, 1e-7, 0.01, 10))
+
+library(EasyABC)
+# Set up and run our ABC
+prior <- list(c("unif", 1e-9, 1e-6),c("unif",0,0.2),c("unif",1,100))
+observed <- 389
+
+ABC_SLiM <- ABC_sequential(method="Lenormand", use_seed=TRUE, model=runSLiM, prior=prior, summary_stat_target=observed, nb_simul=1000)
+
+sum(ABC_SLiM$param * ABC_SLiM$weights)
+
+#it did not accept that "b" was a floating number, so I changed to 10 and it is running:
+=============================
+this script is called test2.slim and it is found in the home directory
+============================
+
+runSLiM <- function(x)
+{
+  seed <- x[1]
+  mu <- x[2]
+  p <- x[3]
+
+  #cat("Running SLiM with seed ", seed, ", mu = ", mu, "\n");
+  
+  output <- system2("/usr/local/bin/slim", c("-d", paste0("mu=", mu), "-d", paste0("p=", p),
+                                             "-s", seed, " ~/test.slim"), stdout=T) 
+  as.numeric(output[length(output)])
+}
+runSLiM(c(100030, 1e-7, 0.01))
+
+library(EasyABC)
+# Set up and run our ABC
+prior <- list(c("unif", 1e-9, 1e-6),c("unif",0,0.2))
+observed <- 389
+
+ABC_SLiM <- ABC_sequential(method="Lenormand", use_seed=TRUE, model=runSLiM, prior=prior, summary_stat_target=observed, nb_simul=1000)
+
+sum(ABC_SLiM$param * ABC_SLiM$weights)
+
+#the results are confusing so I am going to try only ONE unknown parameter at the time
+=========================
+script is called "test3.slim" and it is found at home directory. this only has one unknown parameter.
+=========================
+
+runSLiM <- function(x)
+{
+  seed <- x[1]
+  mu <- x[2]
+
+  #cat("Running SLiM with seed ", seed, ", mu = ", mu, "\n");
+  
+  output <- system2("/usr/local/bin/slim", c("-d", paste0("mu=", mu), "-s", seed, " ~/test.slim"), stdout=T) 
+  as.numeric(output[length(output)])
+}
+runSLiM(c(100030, 1e-7))
+
+library(EasyABC)
+# Set up and run our ABC
+prior <- list(c("unif", 1e-9, 1e-6))
+observed <- xxxxxxxxx
+
+ABC_SLiM <- ABC_sequential(method="Lenormand", use_seed=TRUE, model=runSLiM, prior=prior, summary_stat_target=observed, nb_simul=1000)
+
+sum(ABC_SLiM$param * ABC_SLiM$weights)
+
+log_param <- log(ABC_SLiM$param, 10)
+breaks <- seq(from=min(log_param), to=max(log_param), length.out=8)
+quartz(width=4, height=4)
+hist(log_param, xlim=c(-9, -6), breaks=breaks, col="gray", main="Posterior distribution of mu", xlab="Estimate of mu", xaxt="n") 
+axis(side=1, at=-6:-9, labels=c("1e-6", "1e-7", "1e-8", "1e-9"))
+================================================================
+For Psi the scripI ran was using "p" as my only incognito
+================================================================
+runSLiM <- function(x)
+{
+seed <- x[1]
+p <- x[2]
+
+output <- system2("/usr/local/bin/slim", c("-d", paste0("p=", p), "-s", seed, " ~/test3.slim"), stdout=T) 
+  as.numeric(output[length(output)])
+}
+
+runSLiM(c(100030, 0.05))
+
+library(EasyABC)
+
+prior <- list(c("unif", 0, 0.2))
+observed <- 270
+
+ABC_SLiM <- ABC_sequential(method="Lenormand", use_seed=TRUE, model=runSLiM, prior=prior, summary_stat_target=observed, nb_simul=1000)
+
+sum(ABC_SLiM$param * ABC_SLiM$weights)
+
+v_param <- ABC_SLiM$param
+
+hist(v_param)
+
+************************************************************************
+========================================================================
+Trying to generate a grid using:
+
+mu<-seq(.000000001,.000001, by=.000000000000999)
+mudf<-data.frame(mu)
+
+p<-seq(0,.2, by=.0000002)
+pdf<-data.frame(p)
+
+b <-seq(1,100,by=0.000099000099000099)
+bdf<-data.frame(b)
+
+master<-cbind(mudf,udf) # combines the mudf and the udf together 
+
+==========================================================================
+This is called test3.slim and it gives the outputs as MS 
+
+Command in terminal: slim -d mu=1e-7 -d p=0.015 -d b=1 ~/test3.slim
+==========================================================================
+initialize() {
+	initializeMutationRate(mu);
+	initializeMutationType("m1", 1.0, "e", -0.001);   // weakly deleterious (actually Ne*s= 1 so it's effectively neutral
+	initializeMutationType("m2", 1.0, "f", -0.01);   // weakly deleterious Ne*s=10
+	initializeGenomicElementType("g1", m1, 1.0);
+	initializeGenomicElement(g1, 0, 441153);
+	initializeRecombinationRate(0);
+}1 {
+	defineConstant("N",1000);
+	sim.addSubpop("p1", N);
+	p1.setCloningRate(1.0);
+	defineConstant("mmcgens2",c(10000:11000));
+	defineConstant("psi",p);
+	
+	if(psi!=0){
+		for(gen in mmcgens2){
+			
+			sim.registerEarlyEvent(NULL,s2.source, gen, gen);
+			sim.registerModifyChildCallback(NULL,s3.source,NULL,gen,gen);
+			sim.registerLateEvent(NULL,s4.source, gen, gen);
+		
+		}}
+	
+	sim.deregisterScriptBlock(s2);
+	sim.deregisterScriptBlock(s3);
+	sim.deregisterScriptBlock(s4);
+}
+
+
+s2 2 early(){
+	sim.addSubpopSplit(2,1,p1);
+	p1.setCloningRate(1.0);
+	p1.setMigrationRates(2, psi);
+	countingp1= N-round(N*psi);
+	countingother=round(N-countingp1);
+	countingp1=countingp1+(N-(countingp1+(countingother)));
+	p1.tag=asInteger(countingp1);
+	p2.tag=asInteger(countingother);
+}
+
+s3 2 modifyChild(){
+	if(subpop.id==1){
+		if (sourceSubpop.id==1 & p1.tag==0){
+			return(F);}
+		else if (sourceSubpop.tag==0){
+			return(F);}
+		else{
+			sourceSubpop.tag=asInteger(sourceSubpop.tag-1);
+			return(T);}}
+	else{return(T);}
+}
+
+
+s4 2 late(){
+	p2.setSubpopulationSize(0);
+}
+
+10001 {p1.setSubpopulationSize(b);}
+10090 {p1.setSubpopulationSize(1000);}
+
+late() {
+	// remove any new mutations added to the disabled diploid genomes
+	sim.subpopulations.individuals.genome2.removeMutations();
+	
+	// remove mutations in the haploid genomes that have fixed
+	muts = sim.mutationsOfType(m1);
+	freqs = sim.mutationFrequencies(NULL, muts);
+	sim.subpopulations.genomes.removeMutations(muts[freqs == 0.5], T);
+}
+11000 late() { 
+sim.outputFixedMutations();
+	p1.outputMSSample(10, replace=F);
+}
+=========================================================================
+Called test4.slim. This is a Script used to output Segregating sites:
+-----------------------------------------
+initialize() {
+	initializeMutationRate(mu);
+	initializeMutationType("m1", 1.0, "e", -0.001);   // weakly deleterious (actually Ne*s= 1 so it's effectively neutral
+	initializeMutationType("m2", 1.0, "f", -0.01);   // weakly deleterious Ne*s=10
+	initializeGenomicElementType("g1", m1, 1.0);
+	initializeGenomicElement(g1, 0, 441153);
+	initializeRecombinationRate(0);
+}1 {
+	defineConstant("N",1000);
+	sim.addSubpop("p1", N);
+	p1.setCloningRate(1.0);
+	defineConstant("mmcgens2",c(10000:11000));
+	defineConstant("psi",p);
+	
+	if(psi!=0){
+		for(gen in mmcgens2){
+			
+			sim.registerEarlyEvent(NULL,s2.source, gen, gen);
+			sim.registerModifyChildCallback(NULL,s3.source,NULL,gen,gen);
+			sim.registerLateEvent(NULL,s4.source, gen, gen);
+		
+		}}
+	
+	sim.deregisterScriptBlock(s2);
+	sim.deregisterScriptBlock(s3);
+	sim.deregisterScriptBlock(s4);
+}
+
+
+s2 2 early(){
+	sim.addSubpopSplit(2,1,p1);
+	p1.setCloningRate(1.0);
+	p1.setMigrationRates(2, psi);
+	countingp1= N-round(N*psi);
+	countingother=round(N-countingp1);
+	countingp1=countingp1+(N-(countingp1+(countingother)));
+	p1.tag=asInteger(countingp1);
+	p2.tag=asInteger(countingother);
+}
+
+s3 2 modifyChild(){
+	if(subpop.id==1){
+		if (sourceSubpop.id==1 & p1.tag==0){
+			return(F);}
+		else if (sourceSubpop.tag==0){
+			return(F);}
+		else{
+			sourceSubpop.tag=asInteger(sourceSubpop.tag-1);
+			return(T);}}
+	else{return(T);}
+}
+
+
+s4 2 late(){
+	p2.setSubpopulationSize(0);
+}
+
+10001 {p1.setSubpopulationSize(b);}
+10090 {p1.setSubpopulationSize(1000);}
+
+late() {
+	// remove any new mutations added to the disabled diploid genomes
+	sim.subpopulations.individuals.genome2.removeMutations();
+	
+	// remove mutations in the haploid genomes that have fixed
+	muts = sim.mutationsOfType(m1);
+	freqs = sim.mutationFrequencies(NULL, muts);
+	sim.subpopulations.genomes.removeMutations(muts[freqs == 0.5], T);
+}
+11000 late() { //this is how it produces a MS-output and print it to the terminal//
+	sim.outputFixedMutations();
+g = sample(sim.subpopulations.genomes, 10, T);
+m = sortBy(unique(g.mutations), "position");
+       cat("\n\nsegsites: " + size(m) + "\n");}
+positions = format("%.6f", m.position / sim.chromosome.lastPosition);cat("positions: " + paste(positions, " ") + "\n");
+for (genome in g){hasMuts = (match(m, genome.mutations) >= 0);cat(paste(asInteger(hasMuts), "") + "\n");}}
+*************************************************************
+This one runs from the terminal and prints the MS output to the folder'
+In the terminal I write slim -d mu=1e-7 -d p=0.015 -d b=1 ~/test4.slim
+------------------------------------------------------------
+initialize() {
+	initializeMutationRate(mu);
+	initializeMutationType("m1", 1.0, "e", -0.001);   // weakly deleterious
+	initializeMutationType("m2", 1.0, "f", -0.01);   // strongly deleterious
+	initializeGenomicElementType("g1", m1, 1.0);
+	initializeGenomicElement(g1, 0, 441153);
+	initializeRecombinationRate(0);
+}1 {
+	defineConstant("N",1000);
+	sim.addSubpop("p1", N);
+	p1.setCloningRate(1.0);
+	defineConstant("mmcgens2",c(10000:11000));
+	defineConstant("psi",p);
+	
+	if(psi!=0){
+		for(gen in mmcgens2){
+			
+			sim.registerEarlyEvent(NULL,s2.source, gen, gen);
+			sim.registerModifyChildCallback(NULL,s3.source,NULL,gen,gen);
+			sim.registerLateEvent(NULL,s4.source, gen, gen);
+		
+		}}
+	
+	sim.deregisterScriptBlock(s2);
+	sim.deregisterScriptBlock(s3);
+	sim.deregisterScriptBlock(s4);
+}
+
+
+s2 2 early(){
+	sim.addSubpopSplit(2,1,p1);
+	p1.setCloningRate(1.0);
+	p1.setMigrationRates(2, psi);
+	countingp1= N-round(N*psi);
+	countingother=round(N-countingp1);
+	countingp1=countingp1+(N-(countingp1+(countingother)));
+	p1.tag=asInteger(countingp1);
+	p2.tag=asInteger(countingother);
+}
+
+s3 2 modifyChild(){
+	if(subpop.id==1){
+		if (sourceSubpop.id==1 & p1.tag==0){
+			return(F);}
+		else if (sourceSubpop.tag==0){
+			return(F);}
+		else{
+			sourceSubpop.tag=asInteger(sourceSubpop.tag-1);
+			return(T);}}
+	else{return(T);}
+}
+
+
+s4 2 late(){
+	p2.setSubpopulationSize(0);
+}
+
+10001 {p1.setSubpopulationSize(b);}
+10090 {p1.setSubpopulationSize(1000);}
+
+late() {
+	// remove any new mutations added to the disabled diploid genomes
+	sim.subpopulations.individuals.genome2.removeMutations();
+	
+	// remove mutations in the haploid genomes that have fixed
+	muts = sim.mutationsOfType(m1);
+	freqs = sim.mutationFrequencies(NULL, muts);
+	sim.subpopulations.genomes.removeMutations(muts[freqs == 0.5], T);
+}
+11000 late() {
+	sim.outputFixedMutations();
+	p1.outputMSSample(10, replace=F, filePath="/Users/ana/Dropbox (ASU)/slim_outputs/slim_grid/ms.txt");
+}
+++++++++++++++++++++++++++++++++++++++++++++++++++
+Here I am trying to set the R system work for Tajima D
+==================================================
+#Here I create a function
+
+runSlim <- function(x)
+{
+  seed <- x[1]
+  mu <- x[2]
+  p <- x[3]
+  b <- x[4]
+  tb_model <- system2("/usr/local/bin/slim", c("-s", seed,"-d", paste0("mu=", mu), "-d", paste0("p=",p), "-d",paste0("b=",b),  "~/test4.slim"),stdout=T)
+
+  #as.numeric(output[length(output)]) #this only in case I am using another stat such as seg.sites only or pi
+
+  onefile <- "/Users/ana/Dropbox (ASU)/slim_outputs/slim_grid/ms.txt"
+  tmp <- c(header, readLines(onefile))
+  write(tmp, "tmp.msout")
+  ms <- readMS("tmp.msout")
+  n <- neutrality.stats(ms)
+  gn <- get.neutrality(n)
+  return(gn[[1]][c(1,2)])
+}
+
+
+#
+runSlim(c(100030, 1e-7, 0.015,1))
+
+tajd[,2]
+library(EasyABC)
+
+tb_prior <- list(c("unif", 0.000000001, 0.000001), c("unif", 0, 0.2), c("unif", 1, 100))
+sum_stat_obs = c(-0.7888676, 75.88679)
+
+set.seed(1)
+n=10
+p=0.2
+
+ABC_rej<-ABC_rejection(model = runSlim(c(100030, 1e-7, 0.015,1)), prior = tb_prior, nb_simul = n, summary_stat_target = sum_stat_obs, tol = p)
+
+##This one did not work because of an error saying there is an error saying "it doesn't find the old model"
+
+***********************************************
+script for R to use in Easy ABC with Lenormand algorithm, only two incognitos: mutation rate (mu) and psi(p). Script used is para usar con el script test4.slim. Remember that if you use this script in another computer you need to change the output file directory. Here I run the test4.slim from "home" or ~/ in the local computer. 
+***********************************************
+library(PopGenome)
+
+runSlim <- function(x)
+{
+  seed <- x[1]
+  mu <- x[2]
+  p <- x[3]
+   
+  tb_model <- system2("/usr/local/bin/slim", c("-s", seed,"-d", paste0("mu=", mu), "-d", paste0("p=",p), "~/test4.slim"),stdout=T)
+  
+  header <- "ms 10 1"
+  onefile <- "/Users/ana/Dropbox (ASU)/slim_outputs/slim_grid/ms.txt"
+  tmp <- c(header, readLines(onefile))
+  write(tmp, "tmp.msout")
+  ms <- readMS("tmp.msout")
+  n <- neutrality.stats(ms)
+  gn <- get.neutrality(n)
+  return(gn[[1]][c(1,2)])
+}
+
+runSlim(c(100030, 1e-7, 0.015))
+
+library(EasyABC)
+
+prior <-list(c("unif", 1e-9, 1e-6), c("unif", 0, 0.2))
+
+observed <- c(-0.7888676, 75.88679)
+
+ABC_SliM <- ABC_sequential(method = "Lenormand", use_seed = TRUE, model = runSlim, prior = prior, summary_stat_target = observed, nb_simul = 10)
+
+--------------------------------------
+in order to organize the data:
+
+View(ABC_SliM)
+
+ABC_SliM[["param"]]
+
+mean(ABC_SliM$param[,1]
+
+a <- as.table(ABC_SliM$param)
+#or
+a <- data.frame(ABC_SliM$param)
+
+View(a)
+
+hist(a$X1)
+
+hist(a$X2)
+
+ABC_SliM[["stats_normalization"]]
+
+ABC_SliM[["epsilon"]]
+
+
+
++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++
+This is a script to run an ABC_sequential or also rejection but using other statistics such as π, mutations counts, segregating sites. 
+
++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++
+runSlim <- function(x)
+{
+  seed <- x[1]
+  mu <- x[2]
+  p <- x[3]
+  #b <- x[4]
+  
+tb_model <- system2("/usr/local/bin/slim", c("-s", seed,"-d", paste0("mu=", mu), "-d", paste0("p=",p), "-d",paste0("b=",b),  "~/test4.slim"),stdout=T)
+
+as.numeric(output[length(output)])
+  
+ }
+
+
+# estos son los valores tentativos a correr
+
+runSlim(c(100030, 1e-7, 0.015,1))
+
+
+library(EasyABC)
+
+tb_prior <- list(c("unif", 0.000000001, 0.000001), c("unif", 0, 0.2), c("unif", 1, 100))
+
+
+sum_stat_obs = 276 #this value changes in case that the output in the slim scrip is written to be seg.sites, or Pi, or number of mutations like this case
+
+set.seed(1)
+n=10
+p=0.2
+
+ABC_rej<-ABC_rejection(model = runSlim(c(100030, 1e-7, 0.015,1)), prior = tb_prior, nb_simul = n, summary_stat_target = sum_stat_obs, tol = p)
+
+#prior <-list(c("unif", 1e-9, 1e-6), c("unif", 0, 0.2), c("unif", 1, 100))
+prior <-list(c("unif", 1e-9, 1e-6), c("unif", 0, 0.2))
+observed <- c(-0.7888676, 75.88679)
+
+ABC_SliM <- ABC_sequential(method = "Lenormand", use_seed = TRUE, model = runSlim, prior = prior, summary_stat_target = observed, nb_simul = 10)
+
+**************************************************************************
+
+However, when I ran more than ~10 simulations and produced some tajD as NA I got problems. So I used this script:
+
+
+runSlim <- function(x)
+{
+  seed <- x[1]
+  mu <- x[2]
+  p <- x[3]
+  
+  tb_model <- system2("/usr/local/bin/slim", c("-s", seed,"-d", paste0("mu=", mu), "-d", paste0("p=",p), "~/test4.slim"),stdout=T)
+  
+  onefile <- "/Users/anamoralesarae/Dropbox (ASU)/slim_outputs/ms.txt"
+  header <- "ms 10 1"
+  tmp <- c(header, readLines(onefile))
+  write(tmp, "tmp.msout")
+  ms <- readMS("tmp.msout")
+  n <- neutrality.stats(ms)
+  gn <- get.neutrality(n)
+  
+  gn2 <- gn[[1]][c(1,2)]
+  gn2[is.na(gn2)] <- 100
+  
+  return(gn2)
+}
+
+runSlim(c(100030, 1e-7, 0.015))
+
+library(EasyABC)
+
+prior <-list(c("unif", 1e-9, 1e-6), c("unif", 0, 0.2))
+
+observed <- c(-2.04113, 20.00000)
+
+ABC_SliM <- ABC_sequential(method = "Lenormand", use_seed = TRUE, model = runSlim, prior = prior, summary_stat_target = observed, nb_simul = 50)
+
+--------If I want to draw a histogram I will have to exclude the dumb value 100 in simulations that had NA tajimas's D. So I will have to exclude this using:
+
+  #exclude values
+  #gn3 <- gn[gn2 != 100, ]
+
+=========================================================
+This script attempt to run three unknowns at once using EasyABC. The problem is that I don't find a way to tell that the bottleneck (b) is substituted in the ABC_SliM command line with an integer. Right now it runs the "unif" as requested by the EasyABC by I can't find a way to tell to round it up without getting an error from R. 
+----------------------------------------------------------
+
+runSlim <- function(x)
+{
+  seed <- x[1]
+  mu <- x[2]
+  p <- x[3]
+  b <- x[4]
+  round(b,digits = 0)
+  
+  tb_model <- system2("/usr/local/bin/slim", c("-s", seed,"-d", paste0("mu=", mu), "-d", paste0("p=",p), "-d",paste0("b=",b),  "~/test4.slim"),stdout=T)
+
+  header <- "ms 10 1"
+  onefile <- "/Users/anamoralesarae/Dropbox (ASU)/slim_outputs/slim_grid/ms.txt"
+  tmp <- c(header, readLines(onefile))
+  write(tmp, "tmp.msout")
+  ms <- readMS("tmp.msout")
+  n <- neutrality.stats(ms)
+  gn <- get.neutrality(n)
+  gn2 <- gn[[1]][c(1,2)]
+  gn2[is.na(gn2)] <- 100
+  return(gn2)
+}
+
+library(PopGenome)
+
+#Here it runs the fuction with the 3 parameters
+runSlim(c(100030, 1e-7, 0.015,1))
+
+#here it runs the ABC
+library(EasyABC)
+
+#here I tried different way to tell to the prior list to round b and also alternatives to run runoff in ABC
+#mu_unif <- runif(1, min = 1e-9, max = 1e-6)
+#psi_unif <- runif(1, min = 0, max = 0.2)
+#b_unif <- runif(1, min= 1, max= 100)
+#xx <- as.integer(1:100)
+#xx <- 1:100
+ 
+prior <-list(c("unif",1e-9, 1e-6), c("unif",0, 0.2), c("unif", 1, 100))
+
+observed <- c(-2.04113, 20.00000)
+
+ABC_SliM <- ABC_sequential(method = "Lenormand", use_seed = TRUE, model = runSlim, prior = prior, summary_stat_target = observed, nb_simul = 10)

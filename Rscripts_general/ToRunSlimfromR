@@ -1,0 +1,10 @@
+slim_path <- "/usr/local/bin/slim"
+Directory <- "/Users/anamoralesarae/Desktop/1000replicates"
+script_path <- "/Users/anamoralesarae/Desktop/testMTB.txt"
+doOneSLiMRun <- function(seed, script)
+{
+  system2(slim_path, args = c("-s", seed, shQuote(script)), stdout=T, stderr=T)
+}
+reps <- 1000
+
+output <- doOneSLiMRun(3, script_path)
