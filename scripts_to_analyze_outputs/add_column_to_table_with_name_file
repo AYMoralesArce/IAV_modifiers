@@ -1,0 +1,25 @@
+# Written by: Suhail Ghafoor
+# Date: May 4, 2022
+
+# To run the code paste it into a python file (e.g. code.py) and then run by
+# using "python code.py" in terminal
+
+import os
+import csv
+
+path_to_files = 'results_mutmot_10000' # either relative path or absolute path to directory which has your files
+files = os.listdir(path_to_files) # get all the files in your given directory
+
+for file in files: # iterative over each file
+	if 'new' not in file:
+		split_name = file.split('_') # split the filename using underscore (_) as a delimeter
+		with open(os.path.join(path_to_files, file), 'r') as newFile:
+			reader = csv.reader(newFile)
+			with open(os.path.join(path_to_files, 'new_'+file), 'w') as csvOut:
+				writer = csv.writer(csvOut)
+				writer.writerow(next(reader) + ['mod', 'target']) # adds a new column called 'mod'
+
+				for row in reader:
+					row.append(split_name[8]) # split_name[8] is the number at 8th position, change this if necessary
+					row.append(split_name[7])
+					writer.writerow(row)
