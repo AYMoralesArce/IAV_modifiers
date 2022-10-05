@@ -1,0 +1,45 @@
+#require(data.table)
+library("data.table")
+library(bit64)
+library(bit)
+library(readr)
+library(dplyr, warn.conflicts = FALSE)
+library(ggplot2)
+library(tidyverse)
+require(stats); require(graphics)
+library(tidyr)
+
+list_vcf_files <- list.files(path = "/Volumes/homes/am21t144/IAV_bioinformatics/P+P_all_outputs",
+                            recursive = TRUE,
+                            pattern = "*.csv",
+                            full.names = TRUE)
+
+vcf1 <- read.delim("/Volumes/homes/am21t144/IAV_bioinformatics/P+P_all_outputs/AM_124_minQ20.recode.csv")
+View(vcf1)
+vcf1$ID <- 124
+
+myFiles <- list.files(path="/Volumes/homes/am21t144/IAV_bioinformatics/P+P_all_outputs/", pattern = "*.csv$")
+names(myFiles) <- basename(myFiles)
+all <- ldply(myFiles, read.csv)
+view(all)
+pp_table <-separate(data = all, col = variant_id.POS.REF.ALTRO.AO, into = c("variant_id", "pos", "ref", "alt","countRef","countAlt"), sep = "\t")
+view(pp_table)
+tail(pp_table)
+#pp_table <- write.table(pp_table, file = "/Volumes/homes/am21t144/IAV_bioinformatics/pp_table.csv", dec = ",",  sep = " ")
+
+#count the number of rows by .id in pp_table
+
+library(plyr)
+new_counts <- count(pp_table, ".id")
+
+#Alternative with lapply, but I can't fix the df because I don't know how to enclose the loop
+Lapply <- lapply(myFiles, read.delim, header=TRUE)
+names(Lapply) <- myFiles
+for(i in myFiles)
+  Lapply[[i]]$Source = i
+do.call(rbind, Lapply)
+
+
+
+
+
