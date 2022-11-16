@@ -1,0 +1,100 @@
+#careful with spacing
+#modified by Andre Amado 15/11/22
+
+import sys
+import operator
+from vcf_parser import VCFParser
+
+from glob import glob
+
+# Read about VCF_Parser from here: https://github.com/moonso/vcf_parser
+# EDIT BELOW ------------------------
+
+file_list = glob('*.vcf')
+
+for filename in file_list:
+    print(filename)
+    output_file = filename[:-4] + '.csv'
+
+    header = True   # set this to true if you want the first row to be column names
+    split_variants = False # If you set this to true then it will capture multiple variants in separate lines
+    combine_alleles_by_max = True # if set to true then it will only give you the maximum allele at AO and ALT.
+                                # has no effect if split variants is set to True
+    ignore_nonvariable_alleles = True #if set to false it will keep the alleles that are identical to the reference genome and don't have alternative alleles
+    separate = '\t' # how you want your columns to be separated, you can use , ; \s \t
+    columns = [ # All the columns you want and in the order you want in final output
+        'variant_id',
+        'POS',
+        'REF',
+        'ALT',
+    ]
+
+    info_columns = [    # these are the columns from the info part of the file
+        'RO',
+        'AO',
+    ]
+
+    # FINISH EDITING -----------------------
+
+    # open our file
+    file = open(filename)
+
+    # break the file line by line and load it up
+    lines = file.readlines()
+
+    # look for line that contains the header #CHROM
+    index = -1
+    for num, line in enumerate(lines):
+        if '#CHROM' in line:
+            index = num
+
+    # if #CHROM not found then exit the program else continue
+    if index < 0:
+        sys.exit("#CHROM not found in file, exiting")
+    else:
+        print("#CHROM found at line num " + str(index))
+
+    # read everything using vcf_parser
+    parser = VCFParser(infile=filename, split_variants=split_variants, check_info=True)
+
+    output = []
+
+    if header:
+        line = separate.join(columns)
+        line += separate.join(info_columns)
+        output.append(line)
+
+    for idx, variant in enumerate(parser):
+        line = ''
+        variant_found = False
+        for column in columns:
+            if column == 'ALT' and combine_alleles_by_max:
+                multiple_alt = variant[column].split(',')
+                try:
+                    index, value = max(enumerate(variant['info_dict']['AO']), key=operator.itemgetter(1))
+                    line += multiple_alt[index] + separate
+                    variant_found = True
+                except Exception as e:
+                    print(f"Warning: no AO\n{variant['info_dict']}")
+                    line += variant['REF'] + separate
+            else:
+                line += variant[column] + separate
+        for info in info_columns:
+            if combine_alleles_by_max:
+                try:
+                    line += max(variant['info_dict'][info]) + separate
+                except Exception as e:
+                    line += '0' + separate
+            else:
+                try:
+                    line += ','.join(variant['info_dict'][info]) + separate
+                except Exception as e:
+                    line += '0' + separate
+            
+        if variant_found or not ignore_nonvariable_alleles:
+            output.append(line)
+
+    out = open(output_file, 'w+')
+
+    for line in output:
+        out.write(line.strip() + '\n')
