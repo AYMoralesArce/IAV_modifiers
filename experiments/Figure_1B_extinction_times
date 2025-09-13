@@ -1,0 +1,62 @@
+Figure 1B IAV paper
+# Load necessary libraries
+library(readxl)  # For reading Excel files
+library('scales')  # For scaling functions in ggplot
+library(tidyverse)  # For data manipulation and visualization
+library(dplyr, warn.conflicts = FALSE)  # For data manipulation
+library(tidyr)  # For data tidying
+library(ggplot2)  # For creating plots
+
+# Read the Excel file containing extinction data
+extinction <- read_excel("ss_ext_table.xlsx", col_names = TRUE)
+
+# Subset the data to include only rows where the drug value is 4
+extinction_treated <- subset(extinction, drug == 4)
+
+# Rename the strains as specified
+extinction_treated <- extinction_treated %>%
+  mutate(strain = case_when(
+    strain == "WT" ~ "WT",
+    strain == "PA" ~ "A",
+    strain == "PB1" ~ "B",
+    strain == "PB1+PA" ~ "A+B",
+    strain == "NS1" ~ "X"
+  ))
+
+# Calculate the mean extinction passage for each strain
+mean_ext <- extinction_treated %>%
+  group_by(strain) %>%  # Group data by strain
+  summarise(mean = mean(ext_passage), n = n())  # Calculate mean and count for each strain
+
+# Filter out the "A+B" strain from the mean_ext dataset
+mean_ext_filtered <- mean_ext %>% filter(strain != "A+B")
+
+# Create the plot
+ggplot(extinction_treated) +
+  # Add jittered points for each strain and extinction passage, colored by strain
+  geom_jitter(aes(x = factor(strain, level = c('WT', 'A', 'B', 'A+B', 'X')),
+                  y = ext_passage, colour = strain), 
+              alpha = 0.6, width = 0.23, height = 0.01) +
+  # Set y-axis limits, breaks, and labels
+  scale_y_continuous(limits = c(5, 11), n.breaks = 6, 
+                     labels = c("5", "6", "7", "8", "9", "10", "no extinction")) +
+  # Add error bars for the mean extinction passage, using the filtered dataset
+  geom_errorbar(data = mean_ext_filtered, aes(x = strain, ymin = mean, ymax = mean)) +
+  # Customize the color scale for strains
+  scale_color_manual(name = 'Strain',
+                     values = c('WT' = "grey40", 
+                                'A' = "#6baed6", 
+                                'B' = "#fdae6b", 
+                                'A+B' = "#7fbf7b", 
+                                'X' = "hotpink1")) +
+  # Add plot title and axis labels
+  labs(title = "Mean survival time for PR8 (wild type) and mutants", 
+       y = "Extinction time (Passage)", x = "Strain") +
+  # Apply the minimal theme
+  theme_minimal() +
+  # Customize theme settings (font size for axis text and general text)
+  theme(axis.text = element_text(size = 15),
+        text = element_text(size = 15))
+
+# Save the plot as a PDF file
+ggsave(file = "/Users/ana/Documents/data_paper_iav_2024/am21t144/am21t144/graphs/extinction_final.pdf", width = 8, height = 5, dpi = 300)
