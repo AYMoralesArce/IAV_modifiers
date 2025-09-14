@@ -1,0 +1,86 @@
+Figure 2B ration ts tv over 1 percent in R
+
+# Load required packages
+library(ggplot2)
+library(scales)
+library(stringr)
+
+# --- Step 1: Clean variable names for facet labels ---
+# Map original names to A, B, A+B, X
+ratio_Data$variable <- str_replace_all(ratio_Data$variable, c("PA" = "A", "PB" = "B", "PP" = "A+B", "NS" = "X"))
+
+# --- Step 2: Create interaction_variable for plotting ---
+# Combines variable and replicate/sample
+ratio_Data$interaction_variable <- paste(ratio_Data$variable, ratio_Data$sample, sep = "_")
+
+# --- Step 3: Create legend_group based on variable + drug ---
+ratio_Data$legend_group <- paste0(ratio_Data$variable, ".", ratio_Data$drug)
+
+# --- Step 4: Define color palette consistent with Figure 2A ---
+combined_palette <- c(
+  "WT.0" = "gray",
+  "WT.4" = "grey40",
+  "A.0"  = "gray",
+  "A.4"  = "#6baed6",      # Blue
+  "B.0"  = "gray",
+  "B.4"  = "#fdae6b",      # Orange
+  "A+B.0" = "gray",
+  "A+B.4" = "#7fbf7b",     # Green
+  "X.0"  = "gray",
+  "X.4"  = "hotpink1"      # Pink
+)
+
+# --- Step 5: Define legend labels as named vector ---
+legend_labels <- c(
+  "WT.0" = "WT control",
+  "WT.4" = "WT treatment",
+  "A.0"  = "A control",
+  "A.4"  = "A treatment",
+  "B.0"  = "B control",
+  "B.4"  = "B treatment",
+  "A+B.0" = "A+B control",
+  "A+B.4" = "A+B treatment",
+  "X.0"  = "X control",
+  "X.4"  = "X treatment"
+)
+
+# --- Step 6: Convert legend_group to factor with correct order ---
+ratio_Data$legend_group <- factor(ratio_Data$legend_group, levels = names(combined_palette))
+
+# --- Step 7: Create the plot ---
+ggplot(ratio_Data, aes(x = Passage, y = ratio, color = legend_group, group = interaction_variable)) +
+  geom_point(size = 1.8) +                                 # Plot points
+  geom_line(linewidth = 0.8, linetype = "dashed") +        # Connect points with dashed lines
+  geom_smooth(
+    method = "nls",                                        # Non-linear least squares fit
+    formula = y ~ a * x + b,                               # Linear model for demonstration
+    se = FALSE,                                            # No confidence interval shading
+    method.args = list(start = list(a = 0.1, b = 0.1))     # Starting values for NLS
+  ) +
+  scale_y_continuous(limits = c(0, 10)) +                  # Y-axis limits
+  scale_x_continuous(breaks = axises) +                    # Custom X-axis breaks
+  scale_color_manual(
+    name = "Experimental condition",
+    values = combined_palette,
+    labels = legend_labels                                  # Apply proper legend labels
+  ) +
+  labs(
+    title = "Ratio of transitions to transversions across passages",
+    x = "Passage",
+    y = "Mutations with frequency ≥ 1%"
+  ) +
+  theme_minimal() +
+  theme(
+    axis.text = element_text(size = 15),                   # Match your original text sizes
+    axis.title = element_text(size = 17),
+    legend.text = element_text(size = 10),
+    legend.title = element_text(size = 12),
+    legend.key.size = unit(1, "lines")
+  ) +
+  facet_grid(~factor(variable, levels = c('WT', 'A', 'B', 'A+B', 'X')))  # Facet by strain
+
+
+
+
+ggsave(file="path", width=15, height=4, dpi=300)
+
