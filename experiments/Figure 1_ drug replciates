@@ -1,0 +1,60 @@
+Figure 1, drug replicates titers
+
+# Load required libraries
+library(readxl)
+library(ggplot2)
+library(scales)
+library(tidyverse)
+library(dplyr, warn.conflicts = FALSE)
+library(tidyr)
+
+# Set working directory and import dataset
+setwd("/Users/ana/Documents/data_paper_iav_2024/am21t144/am21t144/graphs/lab_virus")
+drug_replicates <- read_excel("drug_replicates_4uM.xlsx")
+View(drug_replicates)
+
+# Reshape dataset into long format for plotting
+df_drug <- drug_replicates %>%
+  gather(variable, value, PB1:WT)
+
+# Compute group means per variable and drug condition
+mean_drug <- df_drug %>%
+  group_by(variable, drug) %>%
+  summarise(mean = mean(value), n = n())
+
+# Define log-scale breaks for plots
+base_breaks <- function(n = 10){
+  function(x) {
+    axisTicks(log10(range(x, na.rm = TRUE)), log = TRUE, n = n)
+  }
+}
+
+# Add sample identifier by combining drug and replicate number
+df_drug$sample <- paste(df_drug$drug, df_drug$`replicate number`, sep = "_")
+
+# Define axis ticks for selected passages
+axises <- c(1,3,5,6,7,8,9,10)
+
+# Example ggplot: viral titers across passages by mutant
+p <- ggplot(df_drug, aes(x = passage, y = value, color = variable, group = sample)) +
+  geom_line(alpha = 0.5) +
+  geom_point(size = 2, alpha = 0.7) +
+  stat_summary(fun = mean, geom = "line", aes(group = variable), size = 1.2) +
+  scale_y_log10(breaks = base_breaks()) +
+  scale_x_continuous(breaks = axises) +
+  labs(
+    title = "Viral titers by mutant and passage",
+    x = "Passage",
+    y = "Viral titer (PFU/mL, log scale)",
+    color = "Mutant"
+  ) +
+  theme_minimal(base_size = 14) +
+  theme(
+    legend.position = "right",
+    panel.grid.minor = element_blank()
+  )
+
+# Save figure in PDF and PNG formats
+ggsave("viral_titers_by_mutant.pdf", plot = p, width = 8, height = 5)
+ggsave("viral_titers_by_mutant.png", plot = p, width = 8, height = 5, dpi = 300)
+
