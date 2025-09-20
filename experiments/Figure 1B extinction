@@ -1,0 +1,99 @@
+
+# ================================================================
+# Extinction times figure (Figure 1B)
+# ================================================================
+# This script reads extinction passage data, subsets for drug = 4,
+# renames strains, computes means, and plots extinction times
+# with jittered points and mean markers.
+#
+# Output: extinction_final.pdf
+# Dimensions: width = 6 in, height = 3.5 in, dpi = 300
+# ================================================================
+
+# -------------------------------
+# Load required libraries
+# -------------------------------
+library(readxl)   # read Excel files
+library(scales)   # scaling functions (for ggplot)
+library(tidyverse) # tidyverse collection (dplyr, tidyr, ggplot2)
+library(dplyr, warn.conflicts = FALSE) # data manipulation
+library(tidyr)    # data tidying
+library(ggplot2)  # plotting
+
+# -------------------------------
+# Read input data
+# -------------------------------
+extinction <- read_excel("ss_ext_table.xlsx", col_names = TRUE)
+
+# -------------------------------
+# Subset data: only drug == 4
+# -------------------------------
+extinction_treated <- subset(extinction, drug == 4)
+
+# -------------------------------
+# Rename strains for plotting
+# -------------------------------
+extinction_treated <- extinction_treated %>%
+  mutate(strain = case_when(
+    strain == "WT" ~ "WT",
+    strain == "PA" ~ "A",
+    strain == "PB1" ~ "B",
+    strain == "PB1+PA" ~ "A+B",
+    strain == "NS1" ~ "X"
+  ))
+
+# -------------------------------
+# Calculate mean extinction passage per strain
+# -------------------------------
+mean_ext <- extinction_treated %>%
+  group_by(strain) %>%
+  summarise(mean = mean(ext_passage), n = n())
+
+# Exclude "A+B" from mean overlay
+mean_ext_filtered <- mean_ext %>% filter(strain != "A+B")
+
+# -------------------------------
+# Create extinction time plot
+# -------------------------------
+p <- ggplot(extinction_treated) +
+  # Jittered points for each replicate
+  geom_jitter(aes(x = factor(strain, levels = c("WT", "A", "B", "A+B", "X")),
+                  y = ext_passage, colour = strain),
+              alpha = 0.9, width = 0.2, height = 0.05, size = 1.5) +
+  # Y-axis scale and labels
+  scale_y_continuous(n.breaks = 6,
+                     labels = c("5", "6", "7", "8", "9", "10", "no extinction")) +
+  coord_cartesian(ylim = c(5, 11)) +
+  # Mean extinction time markers (as small black ticks)
+  geom_errorbar(data = mean_ext_filtered,
+                aes(x = strain, ymin = mean, ymax = mean),
+                colour = "black", width = 0.25) +
+  # Define strain colors directly in plot
+  scale_color_manual(values = c(
+    "WT"   = "grey40",
+    "A"    = "#6baed6",
+    "B"    = "#fdae6b",
+    "A+B"  = "#7fbf7b",
+    "X"    = "hotpink1"
+  )) +
+  # Axis labels and title
+  labs(title = "Mean survival time for PR8 (wild type) and mutants",
+       y = "Extinction time (Passage)", x = "Strain") +
+  # Theme adjustments for compactness
+  theme_minimal(base_size = 12) +
+  theme(
+    axis.text = element_text(size = 12),
+    axis.title = element_text(size = 13),
+    plot.title = element_text(size = 14, hjust = 0.5),
+    panel.grid.minor = element_blank(),
+    panel.grid.major.x = element_blank(),
+    legend.position = "none"
+  )
+
+# -------------------------------
+# Save figure to PDF
+# -------------------------------
+ggsave(filename = "extinction_final.pdf",
+       plot = p,
+       path = "/Users/ana/Documents/data_paper_iav_2024/am21t144/am21t144/graphs",
+       width = 6, height = 3.5, dpi = 300)
