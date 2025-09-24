@@ -60,24 +60,33 @@ panelA_df$genotype <- factor(
 #----------------------------------------------------------
 # 5. Create plot (Panel A)
 #----------------------------------------------------------
-pA <- ggplot(panelA_df, aes(x = genotype, y = RQ, color = group_type)) +
-  geom_point(size = 2) +
-  scale_y_log10(limits = c(3,90), expand = c(0,0)) +
-  scale_color_manual(values = c(
-  "AB series" = "#D55E00",  # vermilion
-  "WT series" = "#CC79A7"   # reddish purple
-))+
-labs(x = "Genotypes",
+pA <- ggplot(new_table_ordered, aes(x = grp, y = RQ)) +
+  # black points for AB series
+  geom_point(color = "#000000") +
+  # add labels for AB series
+  geom_text(data = new_table_ordered,
+            aes(label = my_vec),
+            size = 6, hjust = 0, nudge_x = 0.05,
+            check_overlap = TRUE) +
+  # log10 y-axis
+  scale_y_log10(limits = c(3,90)) +
+  # vermilion points for WT series
+  geom_point(data = new_table2_ordered, color = "#D55E00") +
+  # add labels for WT series
+  geom_text(data = new_table2_ordered,
+            aes(label = my_vec2),
+            size = 6, hjust = 0, nudge_x = 0.05, vjust = 0,
+            check_overlap = TRUE) +
+  # axis labels only (no title/subtitle)
+  labs(x = "Genotypes",
        y = expression("vRNA counts (log"[10]*")")) +
   theme_minimal(base_size = 12) +
   theme(
-    legend.position = "none",   # hide legend, keep colors
-    axis.text.x = element_text(angle = 45, hjust = 1), # rotated x labels
-    panel.grid.minor = element_blank(),
-    plot.title = element_blank(),     # remove titles
-    plot.subtitle = element_blank()
+    axis.text.x  = element_blank(),
+    axis.ticks.x = element_blank(),
+    plot.title   = element_blank(),
+    plot.subtitle= element_blank()
   )
-
 #----------------------------------------------------------
 # 6. Combine with other panel (Panel B)
 #----------------------------------------------------------
