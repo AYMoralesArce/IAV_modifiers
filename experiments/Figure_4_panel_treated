@@ -1,5 +1,5 @@
 ###########################################################
-# Figure 4 - Panel A
+# Figure X - Panel A
 # vRNA counts for selected genotypes under Favipiravir treatment
 # Clean plotting script with reproducible steps
 ###########################################################
@@ -60,33 +60,82 @@ panelA_df$genotype <- factor(
 #----------------------------------------------------------
 # 5. Create plot (Panel A)
 #----------------------------------------------------------
-pA <- ggplot(new_table_ordered, aes(x = grp, y = RQ)) +
-  # black points for AB series
-  geom_point(color = "#000000") +
-  # add labels for AB series
-  geom_text(data = new_table_ordered,
-            aes(label = my_vec),
-            size = 6, hjust = 0, nudge_x = 0.05,
-            check_overlap = TRUE) +
-  # log10 y-axis
+###########################################################
+# Figure X - Panel A
+# vRNA counts for selected genotypes under Favipiravir treatment
+###########################################################
+
+###########################################################
+# Figure X - Panel A
+# vRNA counts for selected genotypes under Favipiravir treatment
+# With connecting lines between related genotypes
+###########################################################
+library(ggplot2)
+library(dplyr)
+library(ggrepel)
+
+# Add genotype column to both datasets (already present)
+plot_data <- bind_rows(
+  new_table_ordered %>% mutate(series = "AB"),
+  new_table2_ordered %>% mutate(series = "WT")
+) %>%
+  select(grp, RQ, genotype)
+
+# Define connections using genotype names
+connectors <- data.frame(
+  from = c("WT","WT","C","D","AB","AB","ABC","ABD"),
+  to   = c("C","D","CD","CD","ABC","ABD","ABCD","ABCD"),
+  color = c("#D55E00","#D55E00","#D55E00","#D55E00","#000000","#000000","#000000","#000000")
+)
+
+# Join to get numeric coordinates
+connectors <- connectors %>%
+  left_join(plot_data, by = c("from" = "genotype")) %>%
+  rename(x_from = grp, y_from = RQ) %>%
+  left_join(plot_data, by = c("to" = "genotype")) %>%
+  rename(x_to = grp, y_to = RQ)
+
+# Check for missing coordinates
+connectors[!complete.cases(connectors),]  # should be empty now
+
+# Plot
+pA <- ggplot() +
+  geom_point(data = new_table_ordered, aes(x = grp, y = RQ), color = "#000000") +
+  geom_text_repel(
+    data = new_table_ordered,
+    aes(x = grp, y = RQ, label = my_vec),
+    nudge_x = -0.1,          # move labels further left
+    force = 2,                # stronger repulsion
+    segment.size = 0.1,       # thickness of connecting line
+    min.segment.length = 0.2, # ensures line doesn't cross too far
+    size = 6,
+    hjust = 1
+  ) +
+  geom_point(data = new_table2_ordered, aes(x = grp, y = RQ), color = "#D55E00") +
+  geom_text_repel(
+    data = new_table2_ordered,
+    aes(x = grp, y = RQ, label = my_vec2),
+    nudge_x = -0.1,
+    force = 2,
+    segment.size = 0.1,
+    min.segment.length = 0.2,
+    size = 6,
+    hjust = 1
+  )+
+  geom_segment(data = connectors,
+               aes(x = x_from, y = y_from, xend = x_to, yend = y_to, color = color),
+               inherit.aes = FALSE, linewidth = 0.8) +
+  scale_color_identity() +
   scale_y_log10(limits = c(3,90)) +
-  # vermilion points for WT series
-  geom_point(data = new_table2_ordered, color = "#D55E00") +
-  # add labels for WT series
-  geom_text(data = new_table2_ordered,
-            aes(label = my_vec2),
-            size = 6, hjust = 0, nudge_x = 0.05, vjust = 0,
-            check_overlap = TRUE) +
-  # axis labels only (no title/subtitle)
   labs(x = "Genotypes",
        y = expression("vRNA counts (log"[10]*")")) +
   theme_minimal(base_size = 12) +
-  theme(
-    axis.text.x  = element_blank(),
-    axis.ticks.x = element_blank(),
-    plot.title   = element_blank(),
-    plot.subtitle= element_blank()
-  )
+  theme(axis.text.x = element_blank(),
+        axis.ticks.x = element_blank())
+
+pA
+
+
 #----------------------------------------------------------
 # 6. Combine with other panel (Panel B)
 #----------------------------------------------------------
