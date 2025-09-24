@@ -1,0 +1,86 @@
+###########################################################
+# Figure 4 - Panel A
+# vRNA counts for selected genotypes under Favipiravir treatment
+# Clean plotting script with reproducible steps
+###########################################################
+
+# Load required libraries
+library(ggplot2)
+library(dplyr)
+library(patchwork)
+
+#----------------------------------------------------------
+# 1. Import data
+#----------------------------------------------------------
+# Replace with your actual Excel import
+# table_vSeg5 <- readxl::read_excel("plot_vRNA_June_2024.xlsx")
+
+# Convert tibble to data frame if needed
+# vRNA <- table_vSeg5 %>%
+#   tibble::rownames_to_column() %>%
+#   as.data.frame()
+
+#----------------------------------------------------------
+# 2. Subset data for 12 h.p.i. + treatment condition
+#----------------------------------------------------------
+# Example subset (adjust column names if necessary)
+hpi_12 <- subset(vRNA, h.p.i. == 12 & treatment == 4)
+
+#----------------------------------------------------------
+# 3. Prepare data for two genotype groups
+#----------------------------------------------------------
+# Group 1: AB series
+first_plot <- hpi_12[hpi_12$genotype %in% c("AB", "ABC", "ABD", "ABCD"), ]
+# Keep one replicate (first 4 rows, since values are the same)
+to_plot <- first_plot[1:4, ]
+# Reorder factor levels
+my_vec <- c("AB", "ABC", "ABD", "ABCD")
+to_plot$genotype <- factor(to_plot$genotype, levels = my_vec)
+# Add group label
+to_plot$group_type <- "AB series"
+
+# Group 2: WT series
+second_plot <- hpi_12[hpi_12$genotype %in% c("WT", "C", "D", "CD"), ]
+to_plot2 <- second_plot[1:4, ]
+my_vec2 <- c("WT", "C", "D", "CD")
+to_plot2$genotype <- factor(to_plot2$genotype, levels = my_vec2)
+to_plot2$group_type <- "WT series"
+
+# Combine both groups into one dataframe
+panelA_df <- rbind(to_plot, to_plot2)
+
+#----------------------------------------------------------
+# 4. Define genotype order for x-axis
+#----------------------------------------------------------
+panelA_df$genotype <- factor(
+  panelA_df$genotype,
+  levels = c("WT","C","D","CD","AB","ABC","ABD","ABCD")
+)
+
+#----------------------------------------------------------
+# 5. Create plot (Panel A)
+#----------------------------------------------------------
+pA <- ggplot(panelA_df, aes(x = genotype, y = RQ, color = group_type)) +
+  geom_point(size = 2) +
+  scale_y_log10(limits = c(3,90), expand = c(0,0)) +
+  scale_color_manual(values = c(
+  "AB series" = "#D55E00",  # vermilion
+  "WT series" = "#CC79A7"   # reddish purple
+))+
+labs(x = "Genotypes",
+       y = expression("vRNA counts (log"[10]*")")) +
+  theme_minimal(base_size = 12) +
+  theme(
+    legend.position = "none",   # hide legend, keep colors
+    axis.text.x = element_text(angle = 45, hjust = 1), # rotated x labels
+    panel.grid.minor = element_blank(),
+    plot.title = element_blank(),     # remove titles
+    plot.subtitle = element_blank()
+  )
+
+#----------------------------------------------------------
+# 6. Combine with other panel (Panel B)
+#----------------------------------------------------------
+# Example: once you define pB, combine as:
+# final_plot <- pA + pB + plot_layout(ncol = 2)
+# ggsave("FigureX_panelAB.pdf", final_plot, width = 7, height = 3.5)
