@@ -1,0 +1,119 @@
+###########################################################
+# Figure X - Panel A (Treatment 0)
+# vRNA counts for selected genotypes under Favipiravir treatment
+###########################################################
+
+library(readxl)
+library(dplyr)
+library(ggplot2)
+library(ggrepel)
+library(patchwork)
+
+# Set working directory
+setwd("/Users/ana/Documents/data_paper_iav_2024/scripts_data_analysis/Script_Figure_Fitness_landscapes/")
+
+#----------------------------------------------------------
+# 1. Import data
+#----------------------------------------------------------
+table_vSeg5 <- read_excel("plot_vRNA_June_2024.xlsx")
+
+# Convert tibble to data frame
+vRNA <- table_vSeg5 %>%
+  tibble::rownames_to_column() %>%
+  as.data.frame()
+
+#----------------------------------------------------------
+# 2. Subset data for 12 h.p.i. + treatment 0
+#----------------------------------------------------------
+hpi_12 <- subset(vRNA, h.p.i. == 12 & treatment == 0)
+
+#----------------------------------------------------------
+# 3. Prepare data for two genotype groups
+#----------------------------------------------------------
+# AB series (black points)
+new_table_ordered <- hpi_12 %>%
+  filter(genotype %in% c("AB", "ABC", "ABD", "ABCD")) %>%
+  arrange(factor(genotype, levels = c("AB","ABC","ABD","ABCD"))) %>%
+  mutate(
+    grp = 1:4,       # numeric x-axis for plotting
+    my_vec = genotype
+  )
+
+# WT series (orange points)
+new_table2_ordered <- hpi_12 %>%
+  filter(genotype %in% c("WT", "C", "D", "CD")) %>%
+  arrange(factor(genotype, levels = c("WT","C","D","CD"))) %>%
+  mutate(
+    grp = 1:4,       # numeric x-axis for plotting
+    my_vec2 = genotype
+  )
+
+# Combine both datasets for connector coordinates
+plot_data <- bind_rows(
+  new_table_ordered %>% mutate(series = "AB"),
+  new_table2_ordered %>% mutate(series = "WT")
+) %>%
+  select(grp, RQ, genotype)
+
+#----------------------------------------------------------
+# 4. Define connector lines between related genotypes
+#----------------------------------------------------------
+connectors <- data.frame(
+  from = c("WT","WT","C","D","AB","AB","ABC","ABD"),
+  to   = c("C","D","CD","CD","ABC","ABD","ABCD","ABCD"),
+  color = c("#D55E00","#D55E00","#D55E00","#D55E00",
+            "#000000","#000000","#000000","#000000")
+)
+
+# Join to get numeric coordinates
+connectors <- connectors %>%
+  left_join(plot_data, by = c("from" = "genotype")) %>%
+  rename(x_from = grp, y_from = RQ) %>%
+  left_join(plot_data, by = c("to" = "genotype")) %>%
+  rename(x_to = grp, y_to = RQ)
+
+# Check for missing coordinates
+connectors[!complete.cases(connectors), ]  # should be empty
+
+#----------------------------------------------------------
+# 5. Create plot (Panel A)
+#----------------------------------------------------------
+pA <- ggplot() +
+  # Black points (AB series)
+  geom_point(data = new_table_ordered, aes(x = grp, y = RQ), color = "#000000") +
+  geom_text_repel(
+    data = new_table_ordered,
+    aes(x = grp, y = RQ, label = my_vec),
+    nudge_y = -0.3,          # move labels below the points
+    force = 2,                
+    segment.size = 0.1,       
+    min.segment.length = 0.2, 
+    size = 6,
+    vjust = 1                 # align text below
+  ) +
+  # Orange points (WT series)
+  geom_point(data = new_table2_ordered, aes(x = grp, y = RQ), color = "#D55E00") +
+  geom_text_repel(
+    data = new_table2_ordered,
+    aes(x = grp, y = RQ, label = my_vec2),
+    nudge_x = -0.1,          # labels left for orange points
+    force = 2,
+    segment.size = 0.1,
+    min.segment.length = 0.2,
+    size = 6,
+    hjust = 1
+  ) +
+  # Connector lines
+  geom_segment(data = connectors,
+               aes(x = x_from, y = y_from, xend = x_to, yend = y_to, color = color),
+               inherit.aes = FALSE, linewidth = 0.8) +
+  scale_color_identity() +
+  scale_y_log10(limits = c(3,90)) +
+  labs(x = "Genotypes",
+       y = expression("vRNA counts (log"[10]*")")) +
+  theme_minimal(base_size = 12) +
+  theme(axis.text.x = element_blank(),
+        axis.ticks.x = element_blank())
+
+# Display plot
+pA
