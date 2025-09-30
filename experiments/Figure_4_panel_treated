@@ -136,6 +136,50 @@ pA <- ggplot() +
 pA
 
 
+pA <- ggplot() +
+  # Black points (AB series)
+  geom_point(data = new_table_ordered, aes(x = grp, y = RQ), color = "#000000") +
+  geom_text_repel(
+    data = new_table_ordered,
+    aes(x = grp, y = RQ, label = my_vec),
+    nudge_y = -0.05,          # move labels below the points
+    force = 2,               
+    segment.size = 0.1,      
+    min.segment.length = 0.2,
+    size = 6,
+    vjust = 1                # align text below
+  ) +
+  
+  # Orange points (WT series)
+  geom_point(data = new_table2_ordered, aes(x = grp, y = RQ), color = "#D55E00") +
+  geom_text_repel(
+    data = new_table2_ordered,
+    aes(x = grp, y = RQ, label = my_vec2),
+    nudge_x = -0.1,          # keep labels left for orange points
+    force = 2,
+    segment.size = 0.1,
+    min.segment.length = 0.2,
+    size = 6,
+    hjust = 1
+  ) +
+  
+  # Connector lines
+  geom_segment(data = connectors,
+               aes(x = x_from, y = y_from, xend = x_to, yend = y_to, color = color),
+               inherit.aes = FALSE, linewidth = 0.8) +
+  scale_color_identity() +
+  scale_y_log10(limits = c(3,90)) +
+  labs(x = "Genotypes",
+       y = expression("vRNA counts (log"[10]*")")) +
+  theme_minimal(base_size = 12) +
+  theme(axis.text.x = element_blank(),
+        axis.ticks.x = element_blank())
+
+pA
+
+
+
+
 #----------------------------------------------------------
 # 6. Combine with other panel (Panel B)
 #----------------------------------------------------------
