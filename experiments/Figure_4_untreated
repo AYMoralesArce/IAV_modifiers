@@ -84,11 +84,12 @@ pA <- ggplot() +
   geom_text_repel(
     data = new_table_ordered,
     aes(x = grp, y = RQ, label = my_vec),
-    nudge_y = -0.3,          # move labels below the points
+    nudge_y = -0.07,          # move labels below the points
+    nudge_x = 0.07,
     force = 2,                
     segment.size = 0.1,       
-    min.segment.length = 0.2, 
-    size = 6,
+    min.segment.length = 0.01, 
+    size = 3,
     vjust = 1                 # align text below
   ) +
   # Orange points (WT series)
@@ -97,10 +98,11 @@ pA <- ggplot() +
     data = new_table2_ordered,
     aes(x = grp, y = RQ, label = my_vec2),
     nudge_x = -0.1,          # labels left for orange points
+    nudge_y = 0.05,
     force = 2,
     segment.size = 0.1,
-    min.segment.length = 0.2,
-    size = 6,
+    min.segment.length = 0.01,
+    size = 3,
     hjust = 1
   ) +
   # Connector lines
