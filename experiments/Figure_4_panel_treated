@@ -4,6 +4,10 @@
 # Clean plotting script with reproducible steps
 ###########################################################
 
+
+setwd("/Users/ana/Documents/data_paper_iav_2024/scripts_data_analysis/Script_Figure_Fitness_landscapes/")
+
+
 # Load required libraries
 library(ggplot2)
 library(dplyr)
@@ -13,12 +17,12 @@ library(patchwork)
 # 1. Import data
 #----------------------------------------------------------
 # Replace with your actual Excel import
-# table_vSeg5 <- readxl::read_excel("plot_vRNA_June_2024.xlsx")
+table_vSeg5 <- readxl::read_excel("plot_vRNA_June_2024.xlsx")
 
 # Convert tibble to data frame if needed
-# vRNA <- table_vSeg5 %>%
-#   tibble::rownames_to_column() %>%
-#   as.data.frame()
+vRNA <- table_vSeg5 %>%
+  tibble::rownames_to_column() %>%
+  as.data.frame()
 
 #----------------------------------------------------------
 # 2. Subset data for 12 h.p.i. + treatment condition
@@ -56,6 +60,20 @@ panelA_df$genotype <- factor(
   panelA_df$genotype,
   levels = c("WT","C","D","CD","AB","ABC","ABD","ABCD")
 )
+
+# AB series (black points)
+new_table_ordered <- hpi_12 %>%
+  filter(genotype %in% c("AB", "ABC", "ABD", "ABCD")) %>%
+  arrange(factor(genotype, levels = c("AB","ABC","ABD","ABCD"))) %>%
+  mutate(grp = 1:4,    # numeric x-axis
+         my_vec = genotype)
+
+# WT series (orange points)
+new_table2_ordered <- hpi_12 %>%
+  filter(genotype %in% c("WT", "C", "D", "CD")) %>%
+  arrange(factor(genotype, levels = c("WT","C","D","CD"))) %>%
+  mutate(grp = 1:4,    # numeric x-axis
+         my_vec2 = genotype)
 
 #----------------------------------------------------------
 # 5. Create plot (Panel A)
@@ -99,54 +117,20 @@ connectors <- connectors %>%
 connectors[!complete.cases(connectors),]  # should be empty now
 
 # Plot
-pA <- ggplot() +
-  geom_point(data = new_table_ordered, aes(x = grp, y = RQ), color = "#000000") +
-  geom_text_repel(
-    data = new_table_ordered,
-    aes(x = grp, y = RQ, label = my_vec),
-    nudge_x = -0.1,          # move labels further left
-    force = 2,                # stronger repulsion
-    segment.size = 0.1,       # thickness of connecting line
-    min.segment.length = 0.2, # ensures line doesn't cross too far
-    size = 6,
-    hjust = 1
-  ) +
-  geom_point(data = new_table2_ordered, aes(x = grp, y = RQ), color = "#D55E00") +
-  geom_text_repel(
-    data = new_table2_ordered,
-    aes(x = grp, y = RQ, label = my_vec2),
-    nudge_x = -0.1,
-    force = 2,
-    segment.size = 0.1,
-    min.segment.length = 0.2,
-    size = 6,
-    hjust = 1
-  )+
-  geom_segment(data = connectors,
-               aes(x = x_from, y = y_from, xend = x_to, yend = y_to, color = color),
-               inherit.aes = FALSE, linewidth = 0.8) +
-  scale_color_identity() +
-  scale_y_log10(limits = c(3,90)) +
-  labs(x = "Genotypes",
-       y = expression("vRNA counts (log"[10]*")")) +
-  theme_minimal(base_size = 12) +
-  theme(axis.text.x = element_blank(),
-        axis.ticks.x = element_blank())
-
-pA
-
-
-pA <- ggplot() +
+pB <- ggplot() +
   # Black points (AB series)
   geom_point(data = new_table_ordered, aes(x = grp, y = RQ), color = "#000000") +
   geom_text_repel(
     data = new_table_ordered,
     aes(x = grp, y = RQ, label = my_vec),
-    nudge_y = -0.05,          # move labels below the points
-    force = 2,               
+  # nudge_y = 0.1,   # move labels below the points
+   # nudge_x = -0.1, 
+   nudge_x = -0.2, 
+  hjust = 1.2,
+   force = 2,               
     segment.size = 0.1,      
     min.segment.length = 0.2,
-    size = 6,
+    size = 3,
     vjust = 1                # align text below
   ) +
   
@@ -155,12 +139,13 @@ pA <- ggplot() +
   geom_text_repel(
     data = new_table2_ordered,
     aes(x = grp, y = RQ, label = my_vec2),
-    nudge_x = -0.1,          # keep labels left for orange points
+    nudge_y = -0.1,  # keep labels left for orange points
+    nudge_x = 0.2, 
+    hjust = 0,
     force = 2,
     segment.size = 0.1,
     min.segment.length = 0.2,
-    size = 6,
-    hjust = 1
+    size = 3
   ) +
   
   # Connector lines
@@ -175,14 +160,11 @@ pA <- ggplot() +
   theme(axis.text.x = element_blank(),
         axis.ticks.x = element_blank())
 
-pA
-
-
-
+pB
 
 #----------------------------------------------------------
 # 6. Combine with other panel (Panel B)
 #----------------------------------------------------------
 # Example: once you define pB, combine as:
-# final_plot <- pA + pB + plot_layout(ncol = 2)
-# ggsave("FigureX_panelAB.pdf", final_plot, width = 7, height = 3.5)
+ final_plot <- pA + pB + plot_layout(ncol = 2)
+ggsave("Figure4_panelAB.pdf", final_plot, width = 14, height = 3.5, units = "in")
