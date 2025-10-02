@@ -1,6 +1,7 @@
 ###########################################################
 # Figure X - Panel A (Treatment 0)
 # vRNA counts for selected genotypes under Favipiravir treatment
+# Clean plotting script with reproducible steps
 ###########################################################
 
 library(readxl)
@@ -9,12 +10,11 @@ library(ggplot2)
 library(ggrepel)
 library(patchwork)
 
-# Set working directory
-setwd("/Users/ana/Documents/data_paper_iav_2024/scripts_data_analysis/Script_Figure_Fitness_landscapes/")
-
 #----------------------------------------------------------
 # 1. Import data
 #----------------------------------------------------------
+setwd("/Users/ana/Documents/data_paper_iav_2024/scripts_data_analysis/Script_Figure_Fitness_landscapes/")
+
 table_vSeg5 <- read_excel("plot_vRNA_June_2024.xlsx")
 
 # Convert tibble to data frame
@@ -30,13 +30,14 @@ hpi_12 <- subset(vRNA, h.p.i. == 12 & treatment == 0)
 #----------------------------------------------------------
 # 3. Prepare data for two genotype groups
 #----------------------------------------------------------
+
 # AB series (black points)
 new_table_ordered <- hpi_12 %>%
   filter(genotype %in% c("AB", "ABC", "ABD", "ABCD")) %>%
   arrange(factor(genotype, levels = c("AB","ABC","ABD","ABCD"))) %>%
   mutate(
-    grp = 1:4,       # numeric x-axis for plotting
-    my_vec = genotype
+    grp = 1:4,
+    my_vec = c("A+B", "A+B+C", "A+B+D", "A+B+C+D")  # custom labels
   )
 
 # WT series (orange points)
@@ -44,8 +45,8 @@ new_table2_ordered <- hpi_12 %>%
   filter(genotype %in% c("WT", "C", "D", "CD")) %>%
   arrange(factor(genotype, levels = c("WT","C","D","CD"))) %>%
   mutate(
-    grp = 1:4,       # numeric x-axis for plotting
-    my_vec2 = genotype
+    grp = 1:4,
+    my_vec2 = c("WT", "C", "D", "C+D")  # custom labels
   )
 
 # Combine both datasets for connector coordinates
@@ -72,9 +73,6 @@ connectors <- connectors %>%
   left_join(plot_data, by = c("to" = "genotype")) %>%
   rename(x_to = grp, y_to = RQ)
 
-# Check for missing coordinates
-connectors[!complete.cases(connectors), ]  # should be empty
-
 #----------------------------------------------------------
 # 5. Create plot (Panel A)
 #----------------------------------------------------------
@@ -84,26 +82,26 @@ pA <- ggplot() +
   geom_text_repel(
     data = new_table_ordered,
     aes(x = grp, y = RQ, label = my_vec),
-    nudge_y = -0.07,          # move labels below the points
-    nudge_x = 0.07,
+    nudge_y = -0.07,         # move labels slightly below
+    nudge_x = -0.05,         # move to left
     force = 2,                
     segment.size = 0.1,       
     min.segment.length = 0.01, 
     size = 3,
-    vjust = 1                 # align text below
+    hjust = 1
   ) +
   # Orange points (WT series)
   geom_point(data = new_table2_ordered, aes(x = grp, y = RQ), color = "#D55E00") +
   geom_text_repel(
     data = new_table2_ordered,
     aes(x = grp, y = RQ, label = my_vec2),
-    nudge_x = -0.1,          # labels left for orange points
-    nudge_y = 0.05,
+    nudge_y = 0.05,          # move labels slightly above
+    nudge_x = 0.05,          # move to right
     force = 2,
     segment.size = 0.1,
     min.segment.length = 0.01,
     size = 3,
-    hjust = 1
+    hjust = 0
   ) +
   # Connector lines
   geom_segment(data = connectors,
@@ -114,8 +112,11 @@ pA <- ggplot() +
   labs(x = "Genotypes",
        y = expression("vRNA counts (log"[10]*")")) +
   theme_minimal(base_size = 12) +
-  theme(axis.text.x = element_blank(),
-        axis.ticks.x = element_blank())
+  theme(
+     axis.text.x = element_blank()
+  )
 
-# Display plot
+#----------------------------------------------------------
+# 6. Display plot
+#----------------------------------------------------------
 pA
