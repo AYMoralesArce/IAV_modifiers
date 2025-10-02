@@ -1,0 +1,158 @@
+# ========================================================
+# Figure 4: PFU Growth Curve
+# Purpose: Plot viral titers of influenza virus mutants under treatment vs control
+# Export-ready for PLOS Biology format
+# ========================================================
+
+# ------------------------
+# Load required libraries
+# ------------------------
+library(scales)       # log10 axis formatting
+library(latex2exp)    # math formatting for labels
+library(ggplot2)      # core plotting
+library(ggpubr)       # additional themes
+library(rstatix)      # stats helper functions
+library(tidyverse)    # data wrangling
+
+# ------------------------
+# Load data
+# ------------------------
+setwd("/Users/ana/Desktop")
+data_tot <- read.csv("growth_curve_final_2024.csv")
+
+# ------------------------
+# Prepare data: calculate titres
+# ------------------------
+data <- data_tot %>%
+  filter(plot) %>%   # keep only samples flagged for plotting
+  group_by(lab_name, sample_name, treatment) %>%
+  mutate(
+    # calculate viral titres (PFU/mL)
+    titre = count * 10^(-1 * dilution) * 10/3,
+    # convert "12h" → 12 (numeric)
+    time_numeric = as.numeric(str_remove(time, "h"))
+  )
+
+# ------------------------
+# Correction for PR8 pipetting
+# (50 µL instead of 55.6 µL)
+# ------------------------
+pr8_correction <- data %>%
+  filter(sample_name == "PR8") %>%
+  group_by(treatment) %>%
+  mutate(titre = count * 11^(-1 * dilution) * 10/3)
+
+# Replace corrected titres in the dataset
+data$titre[data$sample_name == "PR8"] <- pr8_correction$titre
+
+# ------------------------
+# Compute mean titre per condition
+# ------------------------
+data_mean <- data %>%
+  group_by(lab_name, sample_name, treatment, time_numeric) %>%
+  summarise(
+    m_titre = mean(titre),
+    .groups = "drop"
+  )
+
+# ------------------------
+# Define colors and legend labels
+# ------------------------
+treatment_colors <- c("0" = "black", "4" = "darkorange2")     # Control = black, Treated = orange
+treatment_labels <- c("0" = "Control: 0 µM", "4" = "Treated: 4 µM")
+
+# ------------------------
+# Define facet labels (matching Table 2 / Fig 4 order)
+# ------------------------
+labname_labels <- c(
+  "WT_PR8" = "WT",
+  "PB2_S514T" = "C",
+  "PB1_P64L" = "D",
+  "PB2_S514T+PB1_P64L" = "C+D",
+  "PB1+PA" = "A+B+D",
+  "PB1+PA+PB1_P64L" = "A+B+D",
+  "PB1+PA+PB2_S514T" = "A+B+C+D",
+  "PB1+PA+PB2_S514T+PB1_P64L" = "A+B+C+D"
+)
+
+# Apply factor levels for plotting order
+data$lab_name <- factor(data$lab_name, levels = names(labname_labels))
+data_mean$lab_name <- factor(data_mean$lab_name, levels = names(labname_labels))
+
+# ------------------------
+# Plot: jittered replicates + horizontal mean line
+# ------------------------
+ggplot(data) +
+  # Jittered replicate points
+  geom_jitter(aes(
+    x = time_numeric,
+    y = titre,
+    color = factor(treatment)
+  ),
+  height = 0.2, width = 0.40, size = 1, alpha = 0.7) +
+  
+  # Horizontal line showing group mean
+  geom_segment(
+    data = data_mean,
+    aes(
+      x = time_numeric - 5.5,   # extend line across the facet space
+      xend = time_numeric + 5.5,
+      y = m_titre,
+      yend = m_titre,
+      color = factor(treatment)
+    ),
+    linewidth = 0.5
+  ) +
+  
+  # Y-axis: log10 scale
+  scale_y_log10(
+    breaks = trans_breaks("log10", function(x) 10^x, n = 5),
+    labels = trans_format("log10", math_format(10^.x))
+  ) +
+  
+  # X-axis: numeric times → labels as original strings
+  scale_x_continuous(
+    breaks = unique(data$time_numeric),
+    labels = unique(data$time)
+  ) +
+  
+  # Manual colors and legend
+  scale_color_manual(
+    values = treatment_colors,
+    name = "Experimental condition",
+    labels = treatment_labels
+  ) +
+  
+  # Axis and legend labels
+  labs(
+    x = "Time in hours post infection (hpi)",
+    y = "Viral titre (PFU/mL)"
+  ) +
+  
+  # Theme adjustments for readability
+  theme_minimal(base_size = 14) +
+  theme(
+    axis.text.x = element_text(size = 10, angle = 45, hjust = 1, vjust = 1),
+    axis.text.y = element_text(size = 10),
+    axis.title.x = element_text(size = 12),
+    axis.title.y = element_text(size = 12),
+    legend.title = element_text(size = 12),
+    legend.text = element_text(size = 11)
+  ) +
+  
+  # Facets: one panel per mutant
+  facet_wrap(~lab_name, ncol = 4, labeller = labeller(lab_name = labname_labels))
+
+# ------------------------
+# Export figure as PDF (PLOS Biology format)
+# ------------------------
+outfile <- "/Users/ana/Desktop/Figure4_growth_curve.pdf"
+
+ggsave(
+  filename = outfile,
+  plot = last_plot(),   # export last ggplot object
+  device = "pdf",
+  width = 7,            # double-column width
+  height = 5,           # height adjusted for facets
+  dpi = 300
+)
