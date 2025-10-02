@@ -69,9 +69,9 @@ labname_labels <- c(
   "PB2_S514T" = "C",
   "PB1_P64L" = "D",
   "PB2_S514T+PB1_P64L" = "C+D",
-  "PB1+PA" = "A+B+D",
+  "PB1+PA" = "A+B",
+  "PB1+PA+PB2_S514T" = "A+B+C",
   "PB1+PA+PB1_P64L" = "A+B+D",
-  "PB1+PA+PB2_S514T" = "A+B+C+D",
   "PB1+PA+PB2_S514T+PB1_P64L" = "A+B+C+D"
 )
 
