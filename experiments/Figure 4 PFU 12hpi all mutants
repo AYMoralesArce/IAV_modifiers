@@ -1,8 +1,8 @@
 # ----------------------------
-# Figure 4: PFU growth curve at 12 hpi (mean only, A+B style labels)
+# Figure 4: PFU growth curve at 12 hpi (panel figure)
 # Author: Ana Morales
 # Purpose: Plot viral titers of mutants at 12 h post-infection
-# Raw data + mean line, log10 scale, theme_minimal
+# Raw data + mean line only, log10 scale, theme_minimal
 # ----------------------------
 
 # Load required libraries
@@ -48,31 +48,31 @@ data_mean <- data %>%
   )
 
 # ----------------------------
-# Rename sample_name for consistent "A+B" style labels
+# Rename sample_name for consistent labels
 # ----------------------------
 data$plot_name <- recode(data$sample_name,
-                         "AB" = "A+B",
-                         "ABC" = "A+B+C",
-                         "ABD" = "A+B+D",
+                         "AB"   = "A+B",
+                         "ABC"  = "A+B+C",
+                         "ABD"  = "A+B+D",
                          "ABCD" = "A+B+C+D",
                          "CD"   = "C+D",
                          .default = data$sample_name)
 
 data_mean$plot_name <- recode(data_mean$sample_name,
-                              "AB" = "A+B",
-                              "ABC" = "A+B+C",
-                              "ABD" = "A+B+D",
+                              "AB"   = "A+B",
+                              "ABC"  = "A+B+C",
+                              "ABD"  = "A+B+D",
                               "ABCD" = "A+B+C+D",
                               "CD"   = "C+D",
                               .default = data_mean$sample_name)
 
-# Define the order for x-axis
+# Define order for x-axis
 x_levels <- c("WT","C","D","C+D","A+B","A+B+C","A+B+D","A+B+C+D")
 
 # ----------------------------
 # Plot: raw points + mean line only
 # ----------------------------
-ggplot(data) +
+p <- ggplot(data) +
   # Raw jittered points
   geom_jitter(aes(
     x = factor(plot_name, levels = x_levels),
@@ -80,8 +80,8 @@ ggplot(data) +
     color = factor(treatment)
   ),
   width = 0.2, size = 2, alpha = 0.6) +
-  
-  # Mean line (geom_segment)
+
+  # Mean line (horizontal segment)
   geom_segment(data = data_mean,
                aes(
                  x = as.numeric(factor(plot_name, levels = x_levels)) - 0.2,
@@ -91,21 +91,21 @@ ggplot(data) +
                  color = factor(treatment)
                ),
                linewidth = 1.2) +
-  
+
   # Log10 y-axis
   scale_y_log10(
     breaks = scales::trans_breaks("log10", function(x) 10^x),
     labels = scales::trans_format("log10", scales::math_format(10^.x)),
     limits = c(8e3, 1e8)
   ) +
-  
+
   # Color scheme with legend title
   scale_color_manual(
     name = "Experimental condition",
     values = c("0" = "black", "4" = "darkorange2"),
     labels = c("Control: 0 µM", "Treated: 4 µM")
   ) +
-  
+
   # Labels and theme
   labs(
     x = "Mutants titre at 12 h.p.i",
@@ -122,7 +122,15 @@ ggplot(data) +
   )
 
 # ----------------------------
+# Export figure as small panel (consistent with other panels in Fig. 4)
+# ----------------------------
+ggsave("Figure4_pfu_12hpi.pdf",
+       plot = p,
+       width = 3.5, height = 3.5, dpi = 300)
+
+# ----------------------------
 # Note for figure legend:
 # Each point represents an individual replicate.
 # Mean value is shown as a short horizontal line.
+# No statistical comparisons are shown due to high variability at 12 hpi.
 # ----------------------------
