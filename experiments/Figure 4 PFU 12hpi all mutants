@@ -1,16 +1,14 @@
 # ----------------------------
-# Figure 4: PFU growth curve at 12 hpi
+# Figure 4: PFU growth curve at 12 hpi (mean only, A+B style labels)
+# Author: Ana Morales
 # Purpose: Plot viral titers of mutants at 12 h post-infection
-# Raw data, mean ± SE, log10 scale, theme_minimal
+# Raw data + mean line, log10 scale, theme_minimal
 # ----------------------------
 
 # Load required libraries
-library(scales)       # for log10 axis formatting
-library(latex2exp)    # optional, for math formatting in labels
-library(ggplot2)      # plotting
-library(ggpubr)       # themes, optional
-library(rstatix)      # statistical tests
-library(tidyverse)    # data manipulation
+library(scales)
+library(ggplot2)
+library(tidyverse)
 
 # ----------------------------
 # Set working directory and read data
@@ -25,88 +23,89 @@ data_12 <- subset(data_tot, time == "12h")
 # Process data: compute titers
 # ----------------------------
 data <- data_12 %>%
-  filter(plot) %>%   # only include samples flagged for plotting
+  filter(plot) %>%
   group_by(treatment) %>%
   mutate(
     titre = count * 10^(-1 * dilution) * 10/3,
     time = as.numeric(str_remove(time, "h"))
   )
 
-# Correct mis-pipetting for PR8 viruses (50 ul instead of 55.6 ul)
+# Correct mis-pipetting for PR8 viruses
 pr8_correction <- data %>%
   filter(sample_name == "PR8") %>%
   group_by(treatment) %>%
   mutate(titre = count * 11^(-1 * dilution) * 10/3)
-
-# Apply corrected titers back to main dataset
 data$titre[data$sample_name == "PR8"] <- pr8_correction$titre
 
 # ----------------------------
-# Compute mean, SD, and SE for plotting
+# Compute mean for plotting
 # ----------------------------
 data_mean <- data %>%
   group_by(sample_name, treatment) %>%
   summarise(
     m_titre = mean(titre),
-    sd = sd(titre, na.rm = TRUE),
     count = n()
-  ) %>%
-  mutate(se = sd / sqrt(count))
+  )
 
 # ----------------------------
-# Optional: normalize titers (if needed)
+# Rename sample_name for consistent "A+B" style labels
 # ----------------------------
-data_mean$r_titre <- data_mean$m_titre
-data$r_titre <- data$titre
+data$plot_name <- recode(data$sample_name,
+                         "AB" = "A+B",
+                         "ABC" = "A+B+C",
+                         "ABD" = "A+B+D",
+                         "ABCD" = "A+B+C+D",
+                         "CD"   = "C+D",
+                         .default = data$sample_name)
 
-for (sample in unique(data_mean$sample_name)) {
-  norm <- data_mean$m_titre[data_mean$sample_name == sample][1]
-  data_mean$r_titre[data_mean$sample_name == sample] <- data_mean$m_titre[data_mean$sample_name == sample] / norm
-  data$r_titre[data$sample_name == sample] <- data$titre[data$sample_name == sample] / norm
-}
+data_mean$plot_name <- recode(data_mean$sample_name,
+                              "AB" = "A+B",
+                              "ABC" = "A+B+C",
+                              "ABD" = "A+B+D",
+                              "ABCD" = "A+B+C+D",
+                              "CD"   = "C+D",
+                              .default = data_mean$sample_name)
+
+# Define the order for x-axis
+x_levels <- c("WT","C","D","C+D","A+B","A+B+C","A+B+D","A+B+C+D")
 
 # ----------------------------
-# Optional: log-transform for statistical tests
-# (not used for plotting since we just show mean ± SE)
-# ----------------------------
-data <- data %>% mutate(log_titre = log10(titre))
-
-# ----------------------------
-# Plotting: raw points + mean ± SE bars, log10 scale, theme_minimal
+# Plot: raw points + mean line only
 # ----------------------------
 ggplot(data) +
   # Raw jittered points
   geom_jitter(aes(
-    x = factor(sample_name, levels = c("WT","C","D","CD","AB","ABC","ABD","ABCD")),
+    x = factor(plot_name, levels = x_levels),
     y = titre,
     color = factor(treatment)
   ),
   width = 0.2, size = 2, alpha = 0.6) +
-
-  # Error bars representing mean ± SE
-  geom_errorbar(data = data_mean,
-                aes(
-                  x = sample_name,
-                  ymin = m_titre - se,
-                  ymax = m_titre + se,
-                  color = factor(treatment)
-                ),
-                width = 0.25, linewidth = 0.8) +
-
-  # Log10 y-axis for viral titers
+  
+  # Mean line (geom_segment)
+  geom_segment(data = data_mean,
+               aes(
+                 x = as.numeric(factor(plot_name, levels = x_levels)) - 0.2,
+                 xend = as.numeric(factor(plot_name, levels = x_levels)) + 0.2,
+                 y = m_titre,
+                 yend = m_titre,
+                 color = factor(treatment)
+               ),
+               linewidth = 1.2) +
+  
+  # Log10 y-axis
   scale_y_log10(
     breaks = scales::trans_breaks("log10", function(x) 10^x),
     labels = scales::trans_format("log10", scales::math_format(10^.x)),
     limits = c(8e3, 1e8)
   ) +
-
+  
   # Color scheme with legend title
   scale_color_manual(
-    name = "Experimental condition",      # Legend title
-    values = c("0" = "black", "4" = "darkorange2"),  # colors
-    labels = c("Control: 0 µM", "Treated: 4 µM")     # legend labels
+    name = "Experimental condition",
+    values = c("0" = "black", "4" = "darkorange2"),
+    labels = c("Control: 0 µM", "Treated: 4 µM")
   ) +
-
+  
   # Labels and theme
   labs(
     x = "Mutants titre at 12 h.p.i",
@@ -121,11 +120,9 @@ ggplot(data) +
     axis.title.y = element_text(size = 16),
     axis.title.x = element_text(size = 16)
   )
-ggsave(file = "/Users/ana/Documents/data_paper_iav_2024/am21t144/am21t144/graphs/12hpi_pfu_final.pdf", width = 8, height = 5, dpi = 300)
 
 # ----------------------------
 # Note for figure legend:
 # Each point represents an individual replicate.
-# Error bars represent mean ± standard error (SE).
-# No statistical comparisons are shown due to high variability at 12 hpi.
+# Mean value is shown as a short horizontal line.
 # ----------------------------
