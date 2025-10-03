@@ -1,147 +1,103 @@
 ###########################################################
-# Figure X - Panel A
+# Figure 4 - Panel B (Treatment 4)
 # vRNA counts for selected genotypes under Favipiravir treatment
 # Clean plotting script with reproducible steps
 ###########################################################
 
-
-setwd("/Users/ana/Documents/data_paper_iav_2024/scripts_data_analysis/Script_Figure_Fitness_landscapes/")
-
-
 # Load required libraries
-library(ggplot2)
+library(readxl)
 library(dplyr)
+library(ggplot2)
+library(ggrepel)
 library(patchwork)
 
 #----------------------------------------------------------
 # 1. Import data
 #----------------------------------------------------------
-# Replace with your actual Excel import
-table_vSeg5 <- readxl::read_excel("plot_vRNA_June_2024.xlsx")
+setwd("/Users/ana/Documents/data_paper_iav_2024/scripts_data_analysis/Script_Figure_Fitness_landscapes/")
 
-# Convert tibble to data frame if needed
+# Read Excel table
+table_vSeg5 <- read_excel("plot_vRNA_June_2024.xlsx")
+
+# Convert tibble to data frame
 vRNA <- table_vSeg5 %>%
   tibble::rownames_to_column() %>%
   as.data.frame()
 
 #----------------------------------------------------------
-# 2. Subset data for 12 h.p.i. + treatment condition
+# 2. Subset data for 12 h.p.i. + treatment = 4
 #----------------------------------------------------------
-# Example subset (adjust column names if necessary)
 hpi_12 <- subset(vRNA, h.p.i. == 12 & treatment == 4)
 
 #----------------------------------------------------------
 # 3. Prepare data for two genotype groups
+#    Use a unified "label" column for custom point labels
 #----------------------------------------------------------
-# Group 1: AB series
-first_plot <- hpi_12[hpi_12$genotype %in% c("AB", "ABC", "ABD", "ABCD"), ]
-# Keep one replicate (first 4 rows, since values are the same)
-to_plot <- first_plot[1:4, ]
-# Reorder factor levels
-my_vec <- c("AB", "ABC", "ABD", "ABCD")
-to_plot$genotype <- factor(to_plot$genotype, levels = my_vec)
-# Add group label
-to_plot$group_type <- "AB series"
-
-# Group 2: WT series
-second_plot <- hpi_12[hpi_12$genotype %in% c("WT", "C", "D", "CD"), ]
-to_plot2 <- second_plot[1:4, ]
-my_vec2 <- c("WT", "C", "D", "CD")
-to_plot2$genotype <- factor(to_plot2$genotype, levels = my_vec2)
-to_plot2$group_type <- "WT series"
-
-# Combine both groups into one dataframe
-panelA_df <- rbind(to_plot, to_plot2)
-
-#----------------------------------------------------------
-# 4. Define genotype order for x-axis
-#----------------------------------------------------------
-panelA_df$genotype <- factor(
-  panelA_df$genotype,
-  levels = c("WT","C","D","CD","AB","ABC","ABD","ABCD")
-)
 
 # AB series (black points)
 new_table_ordered <- hpi_12 %>%
   filter(genotype %in% c("AB", "ABC", "ABD", "ABCD")) %>%
   arrange(factor(genotype, levels = c("AB","ABC","ABD","ABCD"))) %>%
-  mutate(grp = 1:4,    # numeric x-axis
-         my_vec = genotype)
+  mutate(
+    grp = 1:4,  # numeric x-axis positions
+    label = c("A+B", "A+B+C", "A+B+D", "A+B+C+D")  # pretty labels
+  )
 
 # WT series (orange points)
 new_table2_ordered <- hpi_12 %>%
   filter(genotype %in% c("WT", "C", "D", "CD")) %>%
   arrange(factor(genotype, levels = c("WT","C","D","CD"))) %>%
-  mutate(grp = 1:4,    # numeric x-axis
-         my_vec2 = genotype)
+  mutate(
+    grp = 1:4,  # numeric x-axis positions
+    label = c("WT", "C", "D", "C+D")  # pretty labels
+  )
+
+# Combine into one dataset for plotting and connectors
+plot_data <- bind_rows(new_table_ordered, new_table2_ordered) %>%
+  select(grp, RQ, label)
 
 #----------------------------------------------------------
-# 5. Create plot (Panel A)
+# 4. Define connector lines using pretty labels
 #----------------------------------------------------------
-###########################################################
-# Figure X - Panel A
-# vRNA counts for selected genotypes under Favipiravir treatment
-###########################################################
-
-###########################################################
-# Figure X - Panel A
-# vRNA counts for selected genotypes under Favipiravir treatment
-# With connecting lines between related genotypes
-###########################################################
-library(ggplot2)
-library(dplyr)
-library(ggrepel)
-
-# Add genotype column to both datasets (already present)
-plot_data <- bind_rows(
-  new_table_ordered %>% mutate(series = "AB"),
-  new_table2_ordered %>% mutate(series = "WT")
-) %>%
-  select(grp, RQ, genotype)
-
-# Define connections using genotype names
 connectors <- data.frame(
-  from = c("WT","WT","C","D","AB","AB","ABC","ABD"),
-  to   = c("C","D","CD","CD","ABC","ABD","ABCD","ABCD"),
-  color = c("#D55E00","#D55E00","#D55E00","#D55E00","#000000","#000000","#000000","#000000")
+  from = c("WT","WT","C","D","A+B","A+B","A+B+C","A+B+D"),
+  to   = c("C","D","C+D","C+D","A+B+C","A+B+D","A+B+C+D","A+B+C+D"),
+  color = c("#D55E00","#D55E00","#D55E00","#D55E00",
+            "#000000","#000000","#000000","#000000")
 )
 
 # Join to get numeric coordinates
 connectors <- connectors %>%
-  left_join(plot_data, by = c("from" = "genotype")) %>%
+  left_join(plot_data, by = c("from" = "label")) %>%
   rename(x_from = grp, y_from = RQ) %>%
-  left_join(plot_data, by = c("to" = "genotype")) %>%
+  left_join(plot_data, by = c("to" = "label")) %>%
   rename(x_to = grp, y_to = RQ)
 
-# Check for missing coordinates
-connectors[!complete.cases(connectors),]  # should be empty now
-
-# Plot
+#----------------------------------------------------------
+# 5. Create plot (Panel B)
+#----------------------------------------------------------
 pB <- ggplot() +
   # Black points (AB series)
   geom_point(data = new_table_ordered, aes(x = grp, y = RQ), color = "#000000") +
   geom_text_repel(
     data = new_table_ordered,
-    aes(x = grp, y = RQ, label = my_vec),
-  # nudge_y = 0.1,   # move labels below the points
-   # nudge_x = -0.1, 
-   nudge_x = -0.2, 
-  hjust = 1.2,
-   force = 2,               
-    segment.size = 0.1,      
+    aes(x = grp, y = RQ, label = label),
+    nudge_x = -0.2,   # shift labels left
+    hjust = 1.2,
+    force = 2,
+    segment.size = 0.1,
     min.segment.length = 0.2,
-    size = 3,
-    vjust = 1                # align text below
+    size = 3
   ) +
   
   # Orange points (WT series)
   geom_point(data = new_table2_ordered, aes(x = grp, y = RQ), color = "#D55E00") +
   geom_text_repel(
     data = new_table2_ordered,
-    aes(x = grp, y = RQ, label = my_vec2),
-    nudge_y = -0.1,  # keep labels left for orange points
-    nudge_x = 0.2, 
-    hjust = 0,
+    aes(x = grp, y = RQ, label = label),
+    nudge_x = 0.1,# shift labels right
+    nudge_y = -0.01,
+ #   hjust = 0.2,
     force = 2,
     segment.size = 0.1,
     min.segment.length = 0.2,
@@ -160,11 +116,7 @@ pB <- ggplot() +
   theme(axis.text.x = element_blank(),
         axis.ticks.x = element_blank())
 
+#----------------------------------------------------------
+# 6. Display plot
+#----------------------------------------------------------
 pB
-
-#----------------------------------------------------------
-# 6. Combine with other panel (Panel B)
-#----------------------------------------------------------
-# Example: once you define pB, combine as:
- final_plot <- pA + pB + plot_layout(ncol = 2)
-ggsave("Figure4_panelAB.pdf", final_plot, width = 14, height = 3.5, units = "in")
