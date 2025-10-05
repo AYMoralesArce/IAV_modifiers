@@ -1,5 +1,5 @@
 ###########################################################
-# Figure X - Panel A (Treatment 0)
+# Figure 5 - Panel A (Treatment 0)
 # vRNA counts for selected genotypes under Favipiravir treatment
 # Clean plotting script with reproducible steps
 ###########################################################
@@ -76,19 +76,20 @@ connectors <- connectors %>%
 #----------------------------------------------------------
 # 5. Create plot (Panel A)
 #----------------------------------------------------------
+
 pA <- ggplot() +
   # Black points (AB series)
   geom_point(data = new_table_ordered, aes(x = grp, y = RQ), color = "#000000") +
   geom_text_repel(
     data = new_table_ordered,
     aes(x = grp, y = RQ, label = my_vec),
-    nudge_y = -0.07,         # move labels slightly below
+    nudge_y = -0.08,         # move labels slightly below
     nudge_x = -0.05,         # move to left
     force = 2,                
     segment.size = 0.1,       
-    min.segment.length = 0.01, 
-    size = 3,
-    hjust = 1
+    min.segment.length = 0.08, 
+    size = 4,
+    #hjust = 1
   ) +
   # Orange points (WT series)
   geom_point(data = new_table2_ordered, aes(x = grp, y = RQ), color = "#D55E00") +
@@ -100,7 +101,7 @@ pA <- ggplot() +
     force = 2,
     segment.size = 0.1,
     min.segment.length = 0.01,
-    size = 3,
+    size = 4,
     hjust = 0
   ) +
   # Connector lines
@@ -120,3 +121,9 @@ pA <- ggplot() +
 # 6. Display plot
 #----------------------------------------------------------
 pA
+
+#----------------------------------------------------------
+# 7. print
+#----------------------------------------------------------
+ggsave("Figure5_panelA.pdf", pA, width = 7, height = 3.5, units = "in", dpi = 300)
+
