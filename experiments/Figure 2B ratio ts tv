@@ -1,86 +1,135 @@
-Figure 2B ratio ts tv over 1 percent in R
+###########################################################
+# Figure 3B - Ratio of transitions to transversions (Ts/Tv)
+# Clean plotting script for reproducible analysis
+# Author: Ana Morales
+# Date: 2025-10-05
+###########################################################
 
-# Load required packages
+#----------------------------------------------------------
+# 1. Set working directory and import data
+#----------------------------------------------------------
+setwd("/Users/ana/Desktop/graphs 2/lab_virus/ratio_ts_tv_1perc/")
+
+# Read and merge all CSV files in the folder into one data frame
+ratio_Data <- do.call(
+  rbind,
+  lapply(
+    list.files(path = "/Users/ana/Desktop/graphs 2/lab_virus/ratio_ts_tv_1perc/"),
+    read.csv
+  )
+)
+
+#----------------------------------------------------------
+# 2. Prepare metadata columns
+#----------------------------------------------------------
+
+# Extract the strain code from the filename (first two characters)
+ratio_Data$variable <- substr(ratio_Data$file_name, 1, 2)
+
+# Combine drug and replicate information into a single column (e.g., "0_1", "4_3")
+ratio_Data$sample <- paste(ratio_Data$drug, ratio_Data$replicate, sep = "_")
+
+# Define the x-axis ticks to display
+axises <- c(1, 3, 5, 6, 7, 8, 9, 10)
+
+#----------------------------------------------------------
+# 3. Load required packages
+#----------------------------------------------------------
 library(ggplot2)
 library(scales)
 library(stringr)
 
-# --- Step 1: Clean variable names for facet labels ---
-# Map original names to A, B, A+B, X
-ratio_Data$variable <- str_replace_all(ratio_Data$variable, c("PA" = "A", "PB" = "B", "PP" = "A+B", "NS" = "X"))
+#----------------------------------------------------------
+# 4. Clean and standardize variable names for facet labels
+#----------------------------------------------------------
+# Rename segment/strain identifiers to match Figure 2A notation
+ratio_Data$variable <- str_replace_all(
+  ratio_Data$variable,
+  c("PA" = "A", "PB" = "B", "PP" = "A+B", "NS" = "X")
+)
 
-# --- Step 2: Create interaction_variable for plotting ---
-# Combines variable and replicate/sample
+#----------------------------------------------------------
+# 5. Create grouping variables for plotting
+#----------------------------------------------------------
+
+# Interaction variable = strain + replicate (used for connecting lines)
 ratio_Data$interaction_variable <- paste(ratio_Data$variable, ratio_Data$sample, sep = "_")
 
-# --- Step 3: Create legend_group based on variable + drug ---
+# Legend group = strain + treatment condition (used for color legend)
 ratio_Data$legend_group <- paste0(ratio_Data$variable, ".", ratio_Data$drug)
 
-# --- Step 4: Define color palette consistent with Figure 2A ---
+#----------------------------------------------------------
+# 6. Define custom color palette and legend labels (same as Figure 2A)
+#----------------------------------------------------------
 combined_palette <- c(
-  "WT.0" = "gray",
-  "WT.4" = "grey40",
-  "A.0"  = "gray",
-  "A.4"  = "#6baed6",      # Blue
-  "B.0"  = "gray",
-  "B.4"  = "#fdae6b",      # Orange
+  "WT.0"  = "gray",
+  "WT.4"  = "grey40",
+  "A.0"   = "gray",
+  "A.4"   = "#6baed6",      # Blue
+  "B.0"   = "gray",
+  "B.4"   = "#fdae6b",      # Orange
   "A+B.0" = "gray",
-  "A+B.4" = "#7fbf7b",     # Green
-  "X.0"  = "gray",
-  "X.4"  = "hotpink1"      # Pink
+  "A+B.4" = "#7fbf7b",      # Green
+  "X.0"   = "gray",
+  "X.4"   = "hotpink1"      # Pink
 )
 
-# --- Step 5: Define legend labels as named vector ---
 legend_labels <- c(
-  "WT.0" = "WT control",
-  "WT.4" = "WT treatment",
-  "A.0"  = "A control",
-  "A.4"  = "A treatment",
-  "B.0"  = "B control",
-  "B.4"  = "B treatment",
+  "WT.0"  = "WT control",
+  "WT.4"  = "WT treatment",
+  "A.0"   = "A control",
+  "A.4"   = "A treatment",
+  "B.0"   = "B control",
+  "B.4"   = "B treatment",
   "A+B.0" = "A+B control",
   "A+B.4" = "A+B treatment",
-  "X.0"  = "X control",
-  "X.4"  = "X treatment"
+  "X.0"   = "X control",
+  "X.4"   = "X treatment"
 )
 
-# --- Step 6: Convert legend_group to factor with correct order ---
+# Convert legend_group to factor to maintain desired color order
 ratio_Data$legend_group <- factor(ratio_Data$legend_group, levels = names(combined_palette))
 
-# --- Step 7: Create the plot ---
-ggplot(ratio_Data, aes(x = Passage, y = ratio, color = legend_group, group = interaction_variable)) +
-  geom_point(size = 1.8) +                                 # Plot points
-  geom_line(linewidth = 0.8, linetype = "dashed") +        # Connect points with dashed lines
-  geom_smooth(
-    method = "nls",                                        # Non-linear least squares fit
-    formula = y ~ a * x + b,                               # Linear model for demonstration
-    se = FALSE,                                            # No confidence interval shading
-    method.args = list(start = list(a = 0.1, b = 0.1))     # Starting values for NLS
-  ) +
-  scale_y_continuous(limits = c(0, 10)) +                  # Y-axis limits
-  scale_x_continuous(breaks = axises) +                    # Custom X-axis breaks
+#----------------------------------------------------------
+# 7. Create the Ts/Tv ratio plot
+#----------------------------------------------------------
+
+p_ratio <- ggplot(
+  ratio_Data,
+  aes(x = Passage, y = ratio, color = legend_group, group = interaction_variable)
+) +
+  geom_point(size = 1.8) +                             # Plot individual points
+  geom_line(linewidth = 0.8, linetype = "dashed") +    # Connect points by replicate
+  scale_y_continuous(limits = c(0, 10)) +              # Set y-axis limits
+  scale_x_continuous(breaks = axises) +                # Custom x-axis ticks
   scale_color_manual(
     name = "Experimental condition",
     values = combined_palette,
-    labels = legend_labels                                  # Apply proper legend labels
+    labels = legend_labels
   ) +
   labs(
-    title = "Ratio of transitions to transversions across passages",
+   # title = "Ratio of transitions to transversions across passages",
     x = "Passage",
-    y = "Mutations with frequency ≥ 1%"
+    y = "Ratio of Ts/Tv using\nMutations with frequency >= 1%"  # Two-line label
   ) +
   theme_minimal() +
   theme(
-    axis.text = element_text(size = 15),                   # Match your original text sizes
+    axis.text = element_text(size = 15),
     axis.title = element_text(size = 17),
     legend.text = element_text(size = 10),
     legend.title = element_text(size = 12),
     legend.key.size = unit(1, "lines")
   ) +
-  facet_grid(~factor(variable, levels = c('WT', 'A', 'B', 'A+B', 'X')))  # Facet by strain
+  facet_grid(~factor(variable, levels = c("WT", "A", "B", "A+B", "X")))  # Facet by strain
 
-
-
-
-ggsave(file="path", width=15, height=4, dpi=300)
-
+p_ratio
+#----------------------------------------------------------
+# 8. Save the figure as a high-resolution PDF
+#----------------------------------------------------------
+ggsave(
+  filename = "/Users/ana/Desktop/graphs 2/lab_virus/ratios_1perc_all_final.pdf",
+  plot = p_ratio,
+  width = 15,
+  height = 4,
+  dpi = 300
+)
