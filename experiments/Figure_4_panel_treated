@@ -1,5 +1,5 @@
 ###########################################################
-# Figure 4 - Panel B (Treatment 4)
+# Figure 5 - Panel B (Treatment 4)
 # vRNA counts for selected genotypes under Favipiravir treatment
 # Clean plotting script with reproducible steps
 ###########################################################
@@ -85,9 +85,9 @@ pB <- ggplot() +
     nudge_x = -0.2,   # shift labels left
     hjust = 1.2,
     force = 2,
-    segment.size = 0.1,
+    segment.size = 0.05,
     min.segment.length = 0.2,
-    size = 3
+    size = 4
   ) +
   
   # Orange points (WT series)
@@ -96,12 +96,12 @@ pB <- ggplot() +
     data = new_table2_ordered,
     aes(x = grp, y = RQ, label = label),
     nudge_x = 0.1,# shift labels right
-    nudge_y = -0.01,
+    nudge_y = -0.08,
  #   hjust = 0.2,
     force = 2,
-    segment.size = 0.1,
-    min.segment.length = 0.2,
-    size = 3
+    segment.size = 0.08,
+    min.segment.length = 0.1,
+    size = 4
   ) +
   
   # Connector lines
@@ -120,3 +120,21 @@ pB <- ggplot() +
 # 6. Display plot
 #----------------------------------------------------------
 pB
+
+#----------------------------------------------------------
+# 7. print
+#----------------------------------------------------------
+ggsave("Figure5_panelB.pdf", pB, width = 7, height = 3.5, units = "in", dpi = 300)
+
+
+#8 print whole figure (optional)
+library(patchwork)
+
+# Combine the two panels side by side
+final_plot <- pA + pB + plot_layout(ncol = 2)
+
+# Add panel labels A and B in top-left corners
+final_plot <- final_plot + plot_annotation(tag_levels = "A")
+
+# Save as PDF (adjust width/height for PLOS format)
+ggsave("Figure5_panelAB.pdf", final_plot, width = 14, height = 5, units = "in")
